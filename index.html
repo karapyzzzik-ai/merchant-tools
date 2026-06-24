@@ -1,0 +1,2648 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Merchant Tools</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :root {
+    --bg: #ffffff; --bg2: #f6f6f4; --bg3: #ecebe6;
+    --text: #16161a; --text2: #62626b; --text3: #97969e;
+    --border: rgba(22,22,26,0.09); --border2: rgba(22,22,26,0.16);
+    --blue: #4338CA; --blue-soft: #EEF0FD;
+    --green-bg: #E9F3E4; --green-text: #2F6D2F;
+    --amber-bg: #FBF0DC; --amber-text: #8A5A0C;
+    --red-bg: #FBEAEA; --red-text: #A32D2D;
+    --r-md: 8px; --r-lg: 14px;
+    --mono: 'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #18181B; --bg2: #232327; --bg3: #2C2C31;
+      --text: #F3F2EE; --text2: #A6A5AC; --text3: #6F6E76;
+      --border: rgba(255,255,255,0.09); --border2: rgba(255,255,255,0.17);
+      --blue: #818CF8; --blue-soft: #232246;
+      --green-bg: #213A1E; --green-text: #9FD18A;
+      --amber-bg: #3D2F10; --amber-text: #E8B563;
+      --red-bg: #3D1F1F; --red-text: #F0A4A4;
+    }
+  }
+
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); margin: 0; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+  /* ── главный nav ── */
+  .main-nav { background: var(--bg); border-bottom: 1px solid var(--border2); display: flex; align-items: center; padding: 0 1.5rem; gap: 0; }
+  .main-nav-logo { font-size: 13px; font-weight: 700; color: var(--text); margin-right: 2.25rem; padding: 1rem 0; white-space: nowrap; letter-spacing: .04em; text-transform: uppercase; }
+  .main-tab { font-size: 14px; padding: 1rem 1.25rem; cursor: pointer; border: none; background: none; color: var(--text2); font-family: inherit; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s, border-color .15s; letter-spacing: -.01em; }
+  .main-tab:hover { color: var(--text); }
+  .main-tab.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+
+  .page { display: none; padding: 2rem 1.5rem 6rem; }
+  .page.active { display: block; }
+  .container { max-width: 860px; margin: 0 auto; }
+
+  /* ── подвкладки (внутри страницы) ── */
+  .sub-tabs { display: flex; gap: 4px; margin-bottom: 1.5rem; }
+  .sub-tab { font-size: 13px; padding: 7px 18px; border: 1px solid var(--border2); border-radius: var(--r-md); cursor: pointer; background: transparent; color: var(--text2); font-family: inherit; transition: background .15s; }
+  .sub-tab:hover { background: var(--bg2); }
+  .sub-tab.active { background: var(--bg); color: var(--text); font-weight: 500; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .sub-page { display: none; }
+  .sub-page.active { display: block; }
+
+  /* ── анализатор ── */
+  .drop-zone { border: 1.5px dashed var(--border2); border-radius: var(--r-lg); padding: 3rem 1rem; text-align: center; cursor: pointer; background: var(--bg); transition: background .15s; }
+  .drop-zone:hover { background: var(--bg2); } .drop-zone.drag { background: var(--blue-soft); border-color: var(--blue); }
+  .drop-icon { font-size: 48px; margin-bottom: 1rem; }
+  .drop-zone p { margin: 4px 0; color: var(--text2); font-size: 14px; }
+  .drop-zone .main-text { font-size: 16px; font-weight: 500; color: var(--text); }
+  input[type=file] { display: none; }
+
+  .btn { font-size: 13px; padding: 6px 14px; border: 1px solid var(--border2); border-radius: var(--r-md); cursor: pointer; background: transparent; color: var(--text); font-family: inherit; }
+  .btn:hover { background: var(--bg2); }
+  .btn-primary { background: var(--blue); color: #fff; border-color: var(--blue); font-size: 14px; padding: 10px 24px; }
+  .btn-primary:hover { opacity: .88; background: var(--blue); }
+
+  #result { display: none; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+  .fname { font-size: 13px; color: var(--text2); }
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+  .metric { background: var(--bg2); border-radius: var(--r-md); padding: 14px; }
+  .metric-lbl { font-size: 12px; color: var(--text2); margin: 0 0 4px; }
+  .metric-val { font-size: 26px; font-weight: 500; color: var(--text); margin: 0; }
+  .metric-pct { font-size: 11px; color: var(--text3); margin: 3px 0 0; }
+  .bar-wrap { background: var(--border); border-radius: 4px; height: 5px; margin-top: 6px; }
+  .bar { height: 5px; border-radius: 4px; background: var(--blue); transition: width .5s; }
+
+  .inner-tabs { display: flex; gap: 4px; margin-bottom: 1rem; }
+  .inner-tab { font-size: 13px; padding: 7px 16px; border: 1px solid var(--border2); border-radius: var(--r-md); cursor: pointer; background: transparent; color: var(--text2); font-family: inherit; }
+  .inner-tab.active { background: var(--bg); color: var(--text); font-weight: 500; }
+
+  .card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 0 1.25rem; }
+  .field-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .field-row:last-child { border-bottom: none; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 99px; min-width: 40px; text-align: center; }
+  .tag-ok   { background: var(--green-bg); color: var(--green-text); }
+  .tag-warn { background: var(--amber-bg); color: var(--amber-text); }
+  .tag-err  { background: var(--red-bg);   color: var(--red-text);   }
+  .req-badge { font-size: 11px; background: var(--red-bg); color: var(--red-text); padding: 2px 6px; border-radius: 4px; }
+  .opt-badge { font-size: 11px; background: var(--bg2); color: var(--text3); padding: 2px 6px; border-radius: 4px; }
+  .count { margin-left: auto; font-size: 12px; color: var(--text2); white-space: nowrap; }
+  .search-box { width: 100%; padding: 8px 12px; border: 1px solid var(--border2); border-radius: var(--r-md); font-size: 14px; font-family: inherit; background: var(--bg); color: var(--text); margin-bottom: 12px; outline: none; }
+  #items-list { max-height: 560px; overflow-y: auto; }
+  .item-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 1rem 1.25rem; margin-bottom: 10px; }
+  .item-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .item-title { font-size: 14px; font-weight: 500; }
+  .item-num { font-size: 12px; color: var(--text3); }
+  .item-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .item-row:last-child { border-bottom: none; }
+  .ik { color: var(--text2); }
+  .iv { color: var(--text); max-width: 55%; text-align: right; word-break: break-word; }
+  .iv.miss { color: var(--red-text); font-style: italic; }
+  .empty-state { text-align: center; padding: 3rem; color: var(--text2); font-size: 14px; }
+
+  /* ── интеграция ── */
+  .integration-card { margin-top: 1rem; }
+  .integration-icon { font-size: 48px; margin-bottom: 1rem; }
+  .integration-title { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+  .integration-desc { font-size: 14px; color: var(--text2); margin: 0 0 1.5rem; line-height: 1.6; }
+
+  /* ── дебаг консоль ── */
+  #dbg-panel { position: fixed; bottom: 0; left: 0; right: 0; background: #111; color: #0f0; font: 12px/1.5 monospace; max-height: 160px; overflow-y: auto; border-top: 2px solid #333; z-index: 9999; padding: 6px 10px calc(6px + env(safe-area-inset-bottom)); }
+  #dbg-panel .err { color: #f66; }
+  #dbg-clear { position: fixed; bottom: 140px; right: 8px; z-index: 10000; font-size: 11px; padding: 2px 8px; cursor: pointer; background: #333; color: #ccc; border: 1px solid #555; border-radius: 4px; }
+
+  /* ── чеклист ── */
+  .checklist { margin-top: 1.5rem; }
+  .checklist-section { margin-bottom: 1.5rem; }
+  .checklist-section-title { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin: 0 0 8px; }
+  .checklist-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-md); margin-bottom: 6px; cursor: pointer; transition: background .1s; user-select: none; }
+  .checklist-item:hover { background: var(--bg2); }
+  .checklist-item.done { opacity: .6; }
+  .checklist-item.done .cl-label { text-decoration: line-through; color: var(--text3); }
+  .cl-check { width: 18px; height: 18px; border: 1.5px solid var(--border2); border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-top: 1px; transition: background .15s, border-color .15s; }
+  .checklist-item.done .cl-check { background: var(--blue); border-color: var(--blue); }
+  .cl-check-icon { display: none; }
+  .checklist-item.done .cl-check-icon { display: block; }
+  .cl-label { font-size: 14px; color: var(--text); line-height: 1.4; }
+  .cl-sub { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .checklist-progress { display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; }
+  .cl-prog-bar { flex: 1; height: 6px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .cl-prog-fill { height: 100%; background: var(--blue); border-radius: 4px; transition: width .3s; }
+  .cl-prog-label { font-size: 12px; color: var(--text2); white-space: nowrap; }
+
+  .cl-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .cl-section-header .checklist-section-title { margin: 0; }
+  .cl-section-header .checklist-progress { flex: 1; max-width: 180px; }
+
+  .btn-success { background: #2d7a3a; color: #fff; border-color: #2d7a3a; font-size: 14px; padding: 10px 24px; }
+  .btn-success:hover { opacity: .88; background: #2d7a3a; }
+  .checklist-section.error .checklist-section-title { color: var(--red-text); }
+  .checklist-section.error { background: var(--red-bg); border-radius: var(--r-md); padding: 8px 12px; }
+  .checklist-footer { display: flex; gap: 10px; margin-top: 1.5rem; align-items: center; }
+  .cl-error-msg { font-size: 13px; color: var(--red-text); }
+
+  /* ── канбан ── */
+  .kanban-board { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 1rem; align-items: flex-start; }
+  .kanban-col { flex: 0 0 220px; background: var(--bg2); border-radius: var(--r-lg); padding: 12px; min-height: 200px; border-top: 2.5px solid transparent; }
+  .kanban-col-header { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+  .kanban-count { background: var(--bg3); color: var(--text3); font-size: 11px; padding: 1px 7px; border-radius: 99px; }
+  .kanban-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: box-shadow .15s; }
+  .kanban-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.10); }
+  .kanban-card-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  .kanban-card-type { font-size: 11px; color: var(--text3); }
+  .kanban-card-type.api  { color: #378ADD; }
+  .kanban-card-type.mall { color: #3b6d11; }
+  .kanban-stage-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .card-stage-select { width: 100%; padding: 7px 10px; border: 1px solid var(--border2); border-radius: var(--r-md); font-size: 13px; font-family: inherit; background: var(--bg); color: var(--text); margin-bottom: 1rem; }
+  .card-section-label { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing:.05em; margin: 1rem 0 6px; }
+  .card-delete-btn { font-size: 12px; color: var(--red-text); border-color: var(--red-text); margin-top: .5rem; }
+  .card-delete-btn:hover { background: var(--red-bg); }
+
+  /* ── drag & drop ── */
+  .kanban-card[draggable=true] { cursor: grab; }
+  .kanban-card.dragging { opacity: .4; cursor: grabbing; }
+  .kanban-col.drag-over { outline: 2px dashed var(--blue); outline-offset: -4px; background: var(--blue-soft); }
+
+  /* ── аналитика фида ── */
+  .analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 1.5rem; }
+  .an-card { background: var(--bg); border: 1px solid var(--border); border-left: 2.5px solid var(--border2); border-radius: var(--r-lg); padding: 1.25rem; transition: border-left-color .2s; }
+  .an-card.has-err  { border-left-color: var(--red-text); }
+  .an-card.has-warn { border-left-color: var(--amber-text); }
+  .an-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text2); margin: 0 0 1rem; }
+  .an-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .an-row:last-child { border-bottom: none; }
+  .an-label { color: var(--text2); }
+  .an-value { font-weight: 600; color: var(--text); font-family: var(--mono); font-size: 12.5px; }
+  .an-value.ok { color: var(--green-text); }
+  .an-value.warn { color: var(--amber-text); }
+  .an-value.err { color: var(--red-text); }
+  .an-big { font-size: 30px; font-weight: 700; color: var(--text); margin: 0 0 4px; font-family: var(--mono); letter-spacing: -.02em; }
+  .an-sub { font-size: 12px; color: var(--text3); }
+  .an-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .an-pill { font-size: 11.5px; padding: 3px 10px; border-radius: 99px; background: var(--bg2); color: var(--text2); font-family: var(--mono); }
+  .an-pill.err { background: var(--red-bg); color: var(--red-text); }
+  .an-pill.warn { background: var(--amber-bg); color: var(--amber-text); }
+  .an-pill.ok { background: var(--green-bg); color: var(--green-text); }
+  .an-conclusion { font-size: 12px; margin-top: 8px; padding: 8px 10px; border-radius: var(--r-md); background: var(--bg2); color: var(--text2); line-height: 1.5; }
+
+  .loader-spinner { width: 40px; height: 40px; border: 3px solid var(--border2); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .fmt-btn { font-size: 14px; padding: 10px 20px; border: 1.5px solid var(--border2); border-radius: var(--r-md); cursor: pointer; background: var(--bg); color: var(--text2); font-family: inherit; font-weight: 500; transition: all .15s; }
+  .fmt-btn:hover { background: var(--bg2); }
+  .fmt-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+  .copy-rec-btn { opacity: .55; transition: opacity .15s; }
+  .copy-rec-btn:hover { opacity: 1; }
+
+  /* ── редактор логотипа ── */
+  .logo-editor-grid { display: grid; grid-template-columns: 320px 1fr; gap: 2rem; align-items: start; }
+  @media (max-width: 720px) { .logo-editor-grid { grid-template-columns: 1fr; } }
+  .logo-preview-col { display: flex; flex-direction: column; align-items: center; }
+  .logo-canvas-wrap { background: repeating-conic-gradient(var(--bg2) 0% 25%, var(--bg) 0% 50%) 50% / 16px 16px; border-radius: var(--r-lg); padding: 1.5rem; }
+  .logo-canvas-area { width: 260px; height: 260px; cursor: grab; touch-action: none; }
+  .logo-canvas-area.dragging { cursor: grabbing; }
+  .logo-hint { font-size: 12px; color: var(--text3); margin-top: .75rem; }
+  .logo-controls-col { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 1.5rem; }
+  .logo-control-group { margin-bottom: 1.25rem; }
+  .logo-control-label { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .04em; display: block; margin-bottom: 8px; }
+  .logo-control-sub { font-size: 11px; color: var(--text3); margin: 4px 0 0; line-height: 1.4; }
+  .logo-color-row { display: flex; gap: 8px; align-items: center; }
+  .logo-color-row input[type=color] { width: 40px; height: 36px; border: 1px solid var(--border2); border-radius: var(--r-md); cursor: pointer; background: none; padding: 2px; }
+  .logo-color-row input[type=text] { flex: 1; padding: 8px 10px; border: 1px solid var(--border2); border-radius: var(--r-md); font-size: 13px; font-family: var(--mono); background: var(--bg); color: var(--text); }
+  input[type=range] { accent-color: var(--blue); }
+
+  .logo-layer-row { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: var(--r-md); cursor: pointer; font-size: 13px; }
+  .logo-layer-row:hover { background: var(--bg2); }
+  .logo-layer-row.selected { background: var(--blue-soft); }
+  .logo-layer-row input[type=checkbox] { width: auto; margin: 0; }
+  .logo-layer-swatch { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--border2); flex-shrink: 0; }
+  .logo-layer-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 13px; padding: 2px 6px; margin-left: auto; border-radius: 4px; }
+  .logo-layer-del:hover { background: var(--red-bg); color: var(--red-text); }
+  .logo-layer-label { color: var(--text); font-family: var(--mono); font-size: 12px; }
+  /* ══════════════════════════════════════════════════════════════════════
+     МОБИЛЬНАЯ АДАПТАЦИЯ — упор на iPhone (375–428px, Safari)
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* Плавный инерционный скролл на iOS для всех горизонтальных лент */
+  .kanban-board, .main-nav, .tabs, .inner-tabs, .sub-tabs {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Убираем синюю вспышку выделения при тапе и зум по даблтапу на кнопках —
+     стандартное поведение Safari iOS, которое выглядит как баг на вебе. */
+  button, .btn, .main-tab, .sub-tab, .inner-tab, .kanban-card, .logo-layer-row,
+  .checklist-item, .item-card {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  @media (max-width: 600px) {
+    /* Safari iOS автоматически зумит страницу при фокусе на input/select,
+       если у него font-size меньше 16px — поднимаем минимум именно на
+       мобильных, чтобы поля не триггерили неожиданный зум при тапе. */
+    input[type=text], input[type=color] + input[type=text], select, .search-box,
+    .logo-color-row input[type=text] {
+      font-size: 16px !important;
+    }
+
+    /* ── общий каркас страницы ── */
+    .page { padding: 1.25rem 1rem 5rem; }
+    .container { max-width: 100%; }
+
+    /* ── главная навигация: горизонтальный скролл вместо переноса ── */
+    .main-nav {
+      overflow-x: auto;
+      padding: 0 0.75rem;
+      scrollbar-width: none;
+    }
+    .main-nav::-webkit-scrollbar { display: none; }
+    .main-nav-logo { margin-right: 1.25rem; font-size: 12px; }
+    .main-tab { padding: 0.85rem 0.85rem; font-size: 13px; flex-shrink: 0; }
+
+    /* ── вкладки второго уровня: тоже скролл, не перенос ── */
+    .sub-tabs, .inner-tabs, .tabs {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      scrollbar-width: none;
+    }
+    .sub-tabs::-webkit-scrollbar, .inner-tabs::-webkit-scrollbar, .tabs::-webkit-scrollbar { display: none; }
+    .sub-tab, .inner-tab, .tab { flex-shrink: 0; }
+
+    /* ── карточки аналитики и метрики: один столбец, не сжимаем до нечитаемого ── */
+    .analytics-grid { grid-template-columns: 1fr; }
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .an-card { padding: 1rem; }
+
+    /* ── модалки партнёров: гарантированно вписываются в экран ── */
+    #modal-add > div, #modal-card > div {
+      width: calc(100vw - 2rem) !important;
+      padding: 1.25rem !important;
+      max-height: 85vh;
+    }
+
+    /* ── чек-листы: прогресс-бар переносится под заголовок, не сжимается ── */
+    .cl-section-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .cl-section-header .checklist-progress { max-width: 100%; width: 100%; }
+    .checklist-item { padding: 10px 12px; }
+
+    /* ── товары/карточки фида ── */
+    .item-row, .an-row { font-size: 12.5px; }
+    .item-card, .an-card { padding: 0.9rem; }
+
+    /* ── канбан: уже скроллится, просто чуть уже карточки под палец ── */
+    .kanban-col { flex: 0 0 200px; }
+    .kanban-mobile-hint { display: block !important; }
+    #page-partners .btn { font-size: 12px; padding: 6px 10px; }
+    #page-partners h2 { font-size: 16px; }
+
+    /* ── редактор логотипа: вертикальная раскладка, холст по ширине экрана ── */
+    .logo-editor-grid { grid-template-columns: 1fr; gap: 1.25rem; }
+    .logo-canvas-wrap { padding: 1rem; }
+    .logo-canvas-area { width: 100%; max-width: 280px; height: auto; aspect-ratio: 1; }
+    #logo-output-svg { width: 100%; height: 100%; }
+    .logo-controls-col { padding: 1.25rem; }
+
+    /* ── метрики ── */
+    .metric { padding: 12px; }
+    .metric-val { font-size: 22px; }
+
+    /* ── дебаг-панель не должна перекрывать весь экран на телефоне ── */
+    #dbg-panel { max-height: 110px; font-size: 11px; }
+    #dbg-clear { bottom: 118px; }
+  }
+
+  @media (max-width: 380px) {
+    /* iPhone SE и аналогичные узкие экраны — дополнительный запас */
+    .page { padding: 1rem 0.75rem 5rem; }
+    .metrics-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .main-tab { padding: 0.85rem 0.7rem; font-size: 12.5px; }
+  }
+
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<!-- ── главная навигация ── -->
+<nav class="main-nav">
+  <span class="main-nav-logo">🛒 Merchant Tools</span>
+  <button class="main-tab active" onclick="showMain('analyzer')">Анализатор фида</button>
+  <button class="main-tab" onclick="showMain('integration')">Интеграция</button>
+  <button class="main-tab" onclick="showMain('partners')">Партнёры в работе</button>
+  <button class="main-tab" onclick="showMain('logo')">Создание логотипа</button>
+</nav>
+
+<!-- ══ СТРАНИЦА 1: АНАЛИЗАТОР ══ -->
+<div id="page-analyzer" class="page active">
+  <div class="container">
+
+    <div id="upload-zone">
+      <!-- Выбор формата -->
+      <div style="display:flex;gap:10px;margin-bottom:1.25rem;">
+        <button class="fmt-btn active" id="fmt-xml" onclick="setFormat('xml')">📄 XML / RSS фид</button>
+        <button class="fmt-btn" id="fmt-xlsx" onclick="setFormat('xlsx')">📊 Excel (.xlsx)</button>
+      </div>
+      <!-- XML drop zone -->
+      <div class="drop-zone" id="dz-xml" onclick="document.getElementById('fi-xml').click()">
+        <div class="drop-icon">📂</div>
+        <p class="main-text">Загрузите XML-фид</p>
+        <p>Перетащите файл или нажмите для выбора</p>
+        <p style="margin-top:8px;font-size:12px;color:var(--text3)">Google Merchant Center RSS/XML</p>
+        <input type="file" id="fi-xml" accept=".xml,.rss">
+      </div>
+      <!-- Excel drop zone -->
+      <div class="drop-zone" id="dz-xlsx" style="display:none" onclick="document.getElementById('fi-xlsx').click()">
+        <div class="drop-icon">📊</div>
+        <p class="main-text">Загрузите Excel-файл</p>
+        <p>Перетащите файл или нажмите для выбора</p>
+        <p style="margin-top:8px;font-size:12px;color:var(--text3)">Формат .xlsx — прайс-лист BCC Mall</p>
+        <input type="file" id="fi-xlsx" accept=".xlsx,.xls">
+      </div>
+    </div>
+
+    <div id="feed-loader" style="display:none; text-align:center; padding:3rem;">
+  <div class="loader-spinner"></div>
+  <p style="margin-top:1rem; font-size:14px; color:var(--text2);">Анализируем фид…</p>
+</div>
+<div id="result">
+      <div class="topbar">
+        <span class="fname" id="fname"></span>
+        <button class="btn" onclick="appReset()">↺ Загрузить другой файл</button>
+      </div>
+
+      <!-- Аналитика фида -->
+      <div id="feed-analytics"></div>
+
+      <!-- Таблица товаров -->
+      <div style="margin-top:1.5rem;">
+        <div class="inner-tabs">
+          <button class="inner-tab active" onclick="showInnerTab('items')" id="t-items">Товары</button>
+          <button class="inner-tab" onclick="showInnerTab('fields')" id="t-fields">Заполненность полей</button>
+        </div>
+        <div id="tab-items">
+          <input type="text" class="search-box" id="search" placeholder="Поиск по названию…" oninput="filterItems()">
+          <div id="items-list"></div>
+        </div>
+        <div id="tab-fields" style="display:none"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ СТРАНИЦА 2: ИНТЕГРАЦИЯ ══ -->
+<div id="page-integration" class="page">
+  <div class="container">
+
+    <div class="sub-tabs">
+      <button class="sub-tab active" onclick="showSub('api')" id="st-api">API</button>
+      <button class="sub-tab" onclick="showSub('mall')" id="st-mall">Mall</button>
+    </div>
+
+    <!-- API -->
+    <!-- API -->
+    <div id="sub-api" class="sub-page active">
+      <button class="btn btn-primary" onclick="startOnboarding('api')">+ Завести партнёра</button>
+      <div id="checklist-api" class="checklist" style="display:none"></div>
+    </div>
+    <!-- Mall -->
+    <div id="sub-mall" class="sub-page">
+      <button class="btn btn-primary" onclick="startOnboarding('mall')">+ Завести партнёра</button>
+      <div id="checklist-mall" class="checklist" style="display:none"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ СТРАНИЦА 3: ПАРТНЁРЫ В РАБОТЕ ══ -->
+<div id="page-partners" class="page">
+  <div class="container" style="max-width:100%">
+    <p class="logo-control-sub kanban-mobile-hint" style="display:none;margin:-0.5rem 0 1rem;">На телефоне перетаскивание недоступно — нажми на карточку и выбери этап в открывшемся окне</p>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap: wrap; gap: 0.75rem;">
+      <h2 style="margin:0;font-size:18px;font-weight:600;">Партнёры в работе</h2>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn" onclick="exportPartners()" title="Скачать данные как JSON">⬇ Сохранить данные</button>
+        <label class="btn" style="cursor:pointer;margin:0;" title="Загрузить данные из JSON">⬆ Загрузить данные<input type="file" id="import-file" accept=".json" style="display:none" onchange="importPartners(this)"></label>
+        <button class="btn btn-primary" onclick="openAddPartner()">+ Добавить партнёра</button>
+      </div>
+    </div>
+    <div id="kanban-board" class="kanban-board"></div>
+  </div>
+</div>
+
+<!-- модалка добавления партнёра -->
+<div id="modal-add" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:var(--bg); border-radius:var(--r-lg); padding:2rem; width:360px; max-width:calc(100vw - 2rem); box-shadow:0 8px 32px rgba(0,0,0,.18);">
+    <h3 style="margin:0 0 1.25rem; font-size:16px;">Новый партнёр</h3>
+    <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px;">Название партнёра</label>
+    <input id="partner-name-input" type="text" class="search-box" placeholder="Например: ТОО Romashka" style="margin-bottom:1rem;">
+    <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px;">Тип интеграции</label>
+    <select id="partner-type-input" class="search-box" style="margin-bottom:1.5rem;">
+      <option value="api">API</option>
+      <option value="mall">Mall</option>
+    </select>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn" onclick="closeAddPartner()">Отмена</button>
+      <button class="btn btn-primary" onclick="savePartner()">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- модалка карточки партнёра -->
+<div id="modal-card" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:var(--bg); border-radius:var(--r-lg); padding:2rem; width:420px; max-width:calc(100vw - 2rem); max-height:80vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,.18);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+      <h3 id="card-title" style="margin:0;font-size:16px;"></h3>
+      <button class="btn" onclick="closeCard()" style="padding:4px 10px;">✕</button>
+    </div>
+    <div id="card-body"></div>
+  </div>
+</div>
+
+<!-- ══ СТРАНИЦА 4: СОЗДАНИЕ ЛОГОТИПА ══ -->
+<div id="page-logo" class="page">
+  <div class="container" style="max-width: 1040px;">
+
+    <div id="logo-upload-zone">
+      <div class="drop-zone" id="logo-dz" onclick="document.getElementById('logo-fi').click()">
+        <div class="drop-icon">🖼️</div>
+        <p class="main-text">Загрузите логотип в формате SVG</p>
+        <p>Перетащите файл или нажмите для выбора</p>
+        <input type="file" id="logo-fi" accept=".svg">
+      </div>
+    </div>
+
+    <div id="logo-editor" style="display:none;">
+      <div class="logo-editor-grid">
+
+        <!-- Превью -->
+        <div class="logo-preview-col">
+          <div class="logo-canvas-wrap">
+            <div id="logo-canvas-area" class="logo-canvas-area">
+              <svg id="logo-output-svg" width="260" height="260" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+                <circle id="logo-bg-circle" cx="110" cy="110" r="110" fill="#FFFFFF"/>
+                <circle id="logo-ring-circle" cx="110" cy="110" r="109" fill="none" stroke="#111111" stroke-width="2"/>
+                <g id="logo-mark-render"></g>
+              </svg>
+            </div>
+          </div>
+          <p class="logo-hint">Клик по слою слева выделяет объект — двигай прямо на холсте мышью</p>
+          <div style="display:flex; gap:8px; margin-top:1rem; justify-content:center; flex-wrap:wrap;">
+            <button class="btn" onclick="clearLogoEditor()">🗑 Очистить</button>
+            <button class="btn btn-primary" onclick="downloadLogoSVG()">⬇ Скачать SVG</button>
+          </div>
+        </div>
+
+        <!-- Слои + контролы -->
+        <div class="logo-controls-col">
+          <p class="fname" id="logo-fname" style="margin-bottom:1rem;"></p>
+
+          <div class="logo-control-group">
+            <label class="logo-control-label">Цвет фона (круг)</label>
+            <div class="logo-color-row">
+              <input type="color" id="logo-bg-color" value="#FFFFFF" oninput="updateLogoBgRing()">
+              <input type="text" id="logo-bg-color-text" value="#FFFFFF" oninput="syncColorFromText(this,'logo-bg-color')">
+            </div>
+          </div>
+
+          <div class="logo-control-group">
+            <label class="logo-control-label">Цвет границы</label>
+            <div class="logo-color-row">
+              <input type="color" id="logo-ring-color" value="#111111" oninput="updateLogoBgRing()">
+              <input type="text" id="logo-ring-color-text" value="#111111" oninput="syncColorFromText(this,'logo-ring-color')">
+            </div>
+          </div>
+
+          <div class="logo-control-group">
+            <label class="logo-control-label">Толщина границы (от края к центру): <span id="logo-ring-width-val">2</span></label>
+            <input type="range" id="logo-ring-width" min="0" max="50" value="2" oninput="updateLogoBgRing()" style="width:100%;">
+          </div>
+
+          <div class="logo-control-group">
+            <label class="logo-control-label">Масштаб всего логотипа: <span id="logo-scale-val">100%</span></label>
+            <input type="range" id="logo-scale" min="20" max="300" value="100" oninput="updateLogoGlobalTransform()" style="width:100%;">
+          </div>
+
+          <div class="logo-control-group">
+            <p class="logo-control-label">Слои (сверху — верхний в файле)</p>
+            <div id="logo-layers-panel"></div>
+          </div>
+
+          <div class="logo-control-group" id="logo-selected-node-controls" style="display:none">
+            <p class="logo-control-label">Выбранный объект</p>
+            <div id="logo-node-controls-body"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- дебаг -->
+<button id="dbg-clear" onclick="document.getElementById('dbg-panel').innerHTML=''">очистить лог</button>
+<div id="dbg-panel"></div>
+
+<script>
+// ── логгер ───────────────────────────────────────────
+var dbg = document.getElementById('dbg-panel');
+function log() {
+  var msg = Array.prototype.slice.call(arguments).map(function(a) {
+    return typeof a === 'object' ? JSON.stringify(a) : String(a);
+  }).join(' ');
+  var div = document.createElement('div');
+  div.textContent = '[log] ' + msg;
+  dbg.appendChild(div); dbg.scrollTop = dbg.scrollHeight;
+}
+function logErr(msg) {
+  var div = document.createElement('div');
+  div.className = 'err';
+  div.textContent = '[ERR] ' + msg;
+  dbg.appendChild(div); dbg.scrollTop = dbg.scrollHeight;
+  console.error(msg);
+}
+window.onerror = function(msg, src, line, col) { logErr(msg + ' (line ' + line + ':' + col + ')'); };
+log('Ready');
+
+function showMain(id) {
+  var pages = ['analyzer', 'integration', 'partners', 'logo'];
+  var tabs = document.querySelectorAll('.main-tab');
+  pages.forEach(function(p, i) {
+    document.getElementById('page-' + p).classList.toggle('active', p === id);
+    tabs[i].classList.toggle('active', p === id);
+  });
+  if (id === 'partners') renderKanban();
+}
+
+function showSub(id) {
+  ['api', 'mall'].forEach(function(s) {
+    document.getElementById('sub-' + s).classList.toggle('active', s === id);
+    document.getElementById('st-' + s).classList.toggle('active', s === id);
+  });
+}
+
+var CHECKLISTS = {
+  api: [
+    {
+      section: 'Передать документы',
+      items: [
+        { id: 'api_docs_asel', label: 'Передать документы Асель' }
+      ]
+    },
+    {
+      section: 'B2B',
+      items: [
+        { id: 'api_b2b_merchants',   label: 'Таблица merchants' },
+        { id: 'api_b2b_scoring',     label: 'Таблица scoring_rates' },
+        { id: 'api_b2b_commissions', label: 'Таблица merchant_commissions' }
+      ]
+    },
+    {
+      section: 'UCHET',
+      items: [
+        { id: 'api_acc_merchants', label: 'Таблица merchants' },
+        { id: 'api_acc_payment',   label: 'Таблица merchant_payment_products' },
+        { id: 'api_acc_promo',     label: 'Если промо + merchants_promotion' }
+      ]
+    },
+    {
+      section: 'Заливка логотипа в Minio',
+      items: [
+        { id: 'api_logo_create', label: 'Создать логотип' },
+        { id: 'api_logo_upload', label: 'Залить логотип' }
+      ]
+    },
+    {
+      section: 'Регистрация учеток в КМ',
+      items: [
+        { id: 'api_km_merchant', label: 'API_MERCHANT' },
+        { id: 'api_km_manager',  label: 'MANAGER' },
+        { id: 'api_km_admin',    label: 'ADMINISTRATOR' }
+      ]
+    }
+  ],
+  mall: [
+    {
+      section: 'Передать документы',
+      items: [
+        { id: 'mall_docs_asel', label: 'Передать документы Асель' }
+      ]
+    },
+    {
+      section: 'B2B',
+      items: [
+        { id: 'mall_b2b_merchants',   label: 'Таблица merchants' },
+        { id: 'mall_b2b_scoring',     label: 'Таблица scoring_rates' },
+        { id: 'mall_b2b_commissions', label: 'Таблица merchant_commissions' }
+      ]
+    },
+    {
+      section: 'UCHET',
+      items: [
+        { id: 'mall_acc_merchants', label: 'Таблица merchants' },
+        { id: 'mall_acc_payment',   label: 'Таблица merchant_payment_products' },
+        { id: 'mall_acc_promo',     label: 'Если промо + merchants_promotion' }
+      ]
+    },
+    {
+      section: 'Заливка логотипа в Minio',
+      items: [
+        { id: 'mall_logo_create', label: 'Создать логотип' },
+        { id: 'mall_logo_upload', label: 'Залить логотип' }
+      ]
+    },
+    {
+      section: 'Регистрация учеток в КМ',
+      items: [
+        { id: 'mall_km_merchant', label: 'API_MERCHANT' },
+        { id: 'mall_km_manager',  label: 'MANAGER' },
+        { id: 'mall_km_admin',    label: 'ADMINISTRATOR' }
+      ]
+    },
+    {
+      section: 'marketplace',
+      items: [
+        { id: 'mall_mp_stores',           label: 'Таблица stores' },
+        { id: 'mall_mp_delivery',         label: 'Таблица stores_delivery_options' },
+        { id: 'mall_mp_payment',          label: 'Таблица store_payment_products' },
+        { id: 'mall_mp_niches',           label: 'Таблица store_niches' }
+      ]
+    },
+    {
+      section: 'crawler',
+      items: [
+        { id: 'mall_cr_feeds',      label: 'Таблица feeds' },
+        { id: 'mall_cr_schedule',   label: 'Формируем расписание обновления фида' },
+        { id: 'mall_cr_trigger',    label: 'Дергаем ближайшую к текущему времени выгрузку' }
+      ]
+    },
+    {
+      section: 'Маппинг категорий',
+      items: [
+        { id: 'mall_cat_check',  label: 'Проверить маппинг категорий' },
+        { id: 'mall_cat_extra',  label: 'Внести доп. категории если необходимо (привязка L2 или L3)' }
+      ]
+    },
+    {
+      section: 'КМ — привязка партнера',
+      items: [
+        { id: 'mall_km_bind', label: 'Под супер-админом привязать партнера к пользователю маркетплейса' }
+      ]
+    },
+    {
+      section: 'Тестирование',
+      items: [
+        { id: 'mall_test', label: 'Провести тестирование' }
+      ]
+    }
+  ]
+};
+
+var checkState = {};
+
+function startOnboarding(type) {
+  var container = document.getElementById('checklist-' + type);
+  if (container.style.display === 'block') { container.style.display = 'none'; return; }
+  renderChecklist(type);
+  container.style.display = 'block';
+}
+
+function renderChecklist(type) {
+  var container = document.getElementById('checklist-' + type);
+  var sections = CHECKLISTS[type] || [];
+  if (!sections.length) {
+    container.innerHTML = '<p style="color:var(--text2);font-size:14px;margin-top:1rem">Чек-лист пока не настроен.</p>';
+    return;
+  }
+  var html = '';
+  for (var si = 0; si < sections.length; si++) {
+    var sec = sections[si];
+    var secDone = 0;
+    for (var ii = 0; ii < sec.items.length; ii++) { if (checkState[sec.items[ii].id]) secDone++; }
+    var pv = sec.items.length ? Math.round(secDone / sec.items.length * 100) : 0;
+    html += '<div class="checklist-section">';
+    html += '<div class="cl-section-header">';
+    html += '<p class="checklist-section-title">' + sec.section + '</p>';
+    html += '<div class="checklist-progress">'
+      + '<div class="cl-prog-bar"><div class="cl-prog-fill" style="width:' + pv + '%"></div></div>'
+      + '<span class="cl-prog-label">' + secDone + ' / ' + sec.items.length + '</span>'
+      + '</div>';
+    html += '</div>';
+    for (var ii = 0; ii < sec.items.length; ii++) {
+      var item = sec.items[ii];
+      var checked = !!checkState[item.id];
+      var icon = checked ? '<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4L4.5 7.5L10 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '';
+      var q = String.fromCharCode(39);
+      var onclick = 'toggleCheck(' + q + type + q + ',' + q + item.id + q + ')';
+      html += '<div class="checklist-item' + (checked ? ' done' : '') + '" onclick="' + onclick + '">'
+        + '<div class="cl-check">' + icon + '</div>'
+        + '<div class="cl-label">' + item.label + '</div>'
+        + '</div>';
+    }
+    html += '</div>';
+  }
+  html += '<div class="checklist-footer">'
+    + '<button class="btn btn-success" onclick="completeOnboarding(' + String.fromCharCode(39) + type + String.fromCharCode(39) + ')">Готово</button>'
+    + '</div>';
+  container.innerHTML = html;
+}
+
+function toggleCheck(type, id) {
+  checkState[id] = !checkState[id];
+  renderChecklist(type);
+}
+
+function completeOnboarding(type) {
+  var sections = CHECKLISTS[type] || [];
+  // find incomplete sections
+  var incomplete = [];
+  for (var si = 0; si < sections.length; si++) {
+    var sec = sections[si];
+    for (var ii = 0; ii < sec.items.length; ii++) {
+      if (!checkState[sec.items[ii].id]) { incomplete.push(si); break; }
+    }
+  }
+  if (incomplete.length > 0) {
+    // re-render with error highlights
+    renderChecklistWithErrors(type, incomplete);
+    return;
+  }
+  // all done — clear state
+  var sections = CHECKLISTS[type];
+  for (var si = 0; si < sections.length; si++)
+    for (var ii = 0; ii < sections[si].items.length; ii++)
+      delete checkState[sections[si].items[ii].id];
+  var container = document.getElementById('checklist-' + type);
+  container.style.display = 'none';
+  log('Onboarding ' + type + ' completed and reset');
+}
+
+function renderChecklistWithErrors(type, errorIdxs) {
+  var container = document.getElementById('checklist-' + type);
+  var sections = CHECKLISTS[type] || [];
+  var html = '';
+  for (var si = 0; si < sections.length; si++) {
+    var sec = sections[si];
+    var hasError = errorIdxs.indexOf(si) !== -1;
+    var secDone = 0;
+    for (var ii = 0; ii < sec.items.length; ii++) { if (checkState[sec.items[ii].id]) secDone++; }
+    var pv = sec.items.length ? Math.round(secDone / sec.items.length * 100) : 0;
+    html += '<div class="checklist-section' + (hasError ? ' error' : '') + '">';
+    html += '<div class="cl-section-header">';
+    html += '<p class="checklist-section-title">' + sec.section + (hasError ? ' !' : '') + '</p>';
+    html += '<div class="checklist-progress">'
+      + '<div class="cl-prog-bar"><div class="cl-prog-fill" style="width:' + pv + '%"></div></div>'
+      + '<span class="cl-prog-label">' + secDone + ' / ' + sec.items.length + '</span>'
+      + '</div>';
+    html += '</div>';
+    for (var ii = 0; ii < sec.items.length; ii++) {
+      var item = sec.items[ii];
+      var checked = !!checkState[item.id];
+      var icon = checked ? '<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4L4.5 7.5L10 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '';
+      var q = String.fromCharCode(39);
+      var onclick = 'toggleCheck(' + q + type + q + ',' + q + item.id + q + ')';
+      html += '<div class="checklist-item' + (checked ? ' done' : '') + '" onclick="' + onclick + '">'
+        + '<div class="cl-check">' + icon + '</div>'
+        + '<div class="cl-label">' + item.label + '</div>'
+        + '</div>';
+    }
+    html += '</div>';
+  }
+  html += '<div class="checklist-footer">'
+    + '<button class="btn btn-success" onclick="completeOnboarding(' + String.fromCharCode(39) + type + String.fromCharCode(39) + ')">Готово</button>'
+    + '<span class="cl-error-msg">Заполните все пункты перед завершением</span>'
+    + '</div>';
+  container.innerHTML = html;
+}
+
+var FIELDS = [
+  { key:'title',                   label:'Название',                  req:true  },
+  { key:'description',             label:'Описание',                  req:true  },
+  { key:'link',                    label:'Ссылка',                    req:true  },
+  { key:'image_link',              label:'Главное изображение',        req:true  },
+  { key:'availability',            label:'Наличие',                   req:true  },
+  { key:'price',                   label:'Цена',                      req:true  },
+  { key:'brand',                   label:'Бренд',                     req:false },
+  { key:'color',                   label:'Цвет',                      req:false },
+  { key:'size',                    label:'Размер',                    req:false },
+  { key:'gender',                  label:'Пол',                       req:false },
+  { key:'age_group',               label:'Возрастная группа',         req:false },
+  { key:'condition',               label:'Состояние',                 req:false },
+  { key:'sale_price',              label:'Цена со скидкой',           req:false },
+  { key:'product_type',            label:'Тип товара',                req:false },
+  { key:'material',                label:'Материал',                  req:false },
+  { key:'pattern',                 label:'Узор',                      req:false },
+  { key:'additional_image_link',   label:'Доп. изображения',          req:false },
+  { key:'item_group_id',           label:'ID группы',                 req:false },
+  { key:'product_highlight',       label:'Ключевые характеристики',   req:false },
+  { key:'energy_efficiency_class', label:'Класс энергоэффективности', req:false },
+  { key:'size_system', label:'Размерная сетка', req:false },
+];
+var allItems = [];
+
+function getField(block, key) {
+  if (key === 'additional_image_link') {
+    var cnt = 0, pos = 0, tag = '<g:additional_image_link>';
+    while ((pos = block.indexOf(tag, pos)) !== -1) { cnt++; pos += tag.length; }
+    if (!cnt) { pos = 0; tag = '<additional_image_link>';
+      while ((pos = block.indexOf(tag, pos)) !== -1) { cnt++; pos += tag.length; } }
+    return cnt ? cnt + ' шт.' : null;
+  }
+  var tries = ['g:' + key, key];
+  for (var t = 0; t < tries.length; t++) {
+    var open = '<' + tries[t] + '>', close = '</' + tries[t] + '>';
+    var s = block.indexOf(open); if (s === -1) continue;
+    s += open.length;
+    var e = block.indexOf(close, s); if (e === -1) continue;
+    var raw = block.slice(s, e).trim();
+    if (raw.slice(0, 9) === '<![CDATA[') {
+      raw = raw.slice(9);
+      var cd = raw.indexOf(']]>'); if (cd !== -1) raw = raw.slice(0, cd);
+      raw = raw.trim();
+    }
+    return raw || null;
+  }
+  return null;
+}
+
+function parseXML(text) {
+  log('parseXML длина:', text.length);
+  var results = [], pos = 0;
+  while (true) {
+    var s = text.indexOf('<item>', pos); if (s === -1) break;
+    var e = text.indexOf('</item>', s);  if (e === -1) break;
+    results.push(text.slice(s + 6, e)); pos = e + 7;
+  }
+  log('Найдено <item>:', results.length);
+  if (!results.length) { logErr('Нет тегов <item>'); alert('Товары не найдены.'); return []; }
+  var items = results.map(function(block) {
+    var obj = {};
+    for (var i = 0; i < FIELDS.length; i++) obj[FIELDS[i].key] = getField(block, FIELDS[i].key);
+    return obj;
+  });
+  log('Первый товар:', JSON.stringify(items[0]));
+  return items;
+}
+
+function pct(n, total) { return total ? Math.round(n / total * 100) : 0; }
+
+// ── Допустимые значения ───────────────────────────────────────
+var VALID_COLORS = ['white','black','red','blue','green','yellow','orange','purple','pink','grey','gray',
+  'brown','beige','cream','navy','silver','gold','multicolor','multi','белый','чёрный','черный','красный',
+  'синий','голубой','зелёный','зеленый','желтый','жёлтый','оранжевый','фиолетовый','розовый','серый',
+  'коричневый','бежевый','кремовый','золотой','серебристый','мультиколор','разноцветный','хаки','бордовый',
+  'сиреневый','лавандовый','терракотовый','индиго'];
+
+var SIZE_SYSTEMS = {
+  'EU': /^\d{1,3}([\/\-]\d{1,3})?$/,
+  'US': /^\d{1,2}(\.5)?[SMLX]?$/,
+  'UK': /^\d{1,2}(\.5)?$/,
+  'INT': /^(XXS|XS|S|M|L|XL|XXL|XXXL|4XL|5XL|ONE SIZE|FREE SIZE)$/i,
+  'RU': /^\d{2,3}([\/\-]\d{2,3})?$/,
+};
+
+var VALID_SIZES_INT = ['xxs','xs','s','m','l','xl','xxl','xxxl','4xl','5xl','one size','free size',
+  'onesize','os'];
+
+// Проверка названия: содержит размер?
+var SIZE_IN_NAME_RE = /\b(xxs|xs|xl|xxl|xxxl|4xl|5xl|\d{2,3}[\/\-]?\d{0,3}\s*(?:см|cm|mm|мм)?|размер\s*\d|size\s*\d|one\s*size|free\s*size)\b/i;
+
+function showDetail(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function copyToClipboard(text, btn, okLabel) {
+  function fallback() {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch(e) { logErr('copy fallback failed: ' + e.message); }
+    document.body.removeChild(ta);
+  }
+  function done() {
+    if (!btn) return;
+    var old = btn.textContent;
+    btn.textContent = okLabel || '✓ Скопировано';
+    setTimeout(function() { btn.textContent = old; }, 1500);
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, function() { fallback(); done(); });
+  } else {
+    fallback(); done();
+  }
+}
+
+function copyAllRecs() {
+  var recs = window._recsList || [];
+  if (!recs.length) return;
+  var text = 'Рекомендации по товарному фиду:\n\n' + recs.map(function(r, i) { return (i+1) + '. ' + r.plain; }).join('\n');
+  copyToClipboard(text, document.getElementById('copy-all-recs'), '✓ Скопировано');
+}
+
+function copyOneRec(btn, idx) {
+  var recs = window._recsList || [];
+  var r = recs[idx];
+  if (!r) return;
+  copyToClipboard(r.plain, btn, '✓');
+}
+
+function renderAnalytics(items) {
+  var total = items.length;
+  if (!total) return;
+
+  // ── 1. Наличие ──
+  var inStock = items.filter(function(i) {
+    var a = (i.availability || '').toLowerCase().replace(/[_\s-]/g, '');
+    return a === 'instock' || a === 'available' || a === 'вналичии' || a === 'true' || a === '1' || a === 'yes';
+  }).length;
+  var outStock = total - inStock;
+
+  // ── 2. Названия ──
+  var SIZE_IN_NAME_RE = /\b(xxs|xs|xl|xxl|xxxl|4xl|5xl|\d{2,3}[\/\-]?\d{0,3}\s*(?:см|cm|mm|мм)?|размер\s*\d|size\s*\d|one\s*size|free\s*size)\b/i;
+  var titleFilled = items.filter(function(i) { return !!i.title; }).length;
+  var titlesWithSize = items.filter(function(i) { return i.title && SIZE_IN_NAME_RE.test(i.title); });
+
+  // ── 3. Фото ──
+  var withMain  = items.filter(function(i) { return !!i.image_link; }).length;
+  var photoMap  = {};
+  items.forEach(function(i) {
+    var n = parseInt(i.additional_image_link) || 0;
+    photoMap[n] = (photoMap[n] || 0) + 1;
+  });
+  var with2plus = items.filter(function(i) { return (parseInt(i.additional_image_link) || 0) >= 2; }).length;
+  var noExtra   = items.filter(function(i) { return (parseInt(i.additional_image_link) || 0) === 0; });
+
+  // ── 4. Бренд ──
+  var brandFilled  = items.filter(function(i) { return !!i.brand; }).length;
+  var noBrand      = items.filter(function(i) { return !i.brand; });
+
+  // ── 5. Цвет ──
+  var VALID_COLORS = ['white','black','red','blue','green','yellow','orange','purple','pink','grey','gray',
+    'brown','beige','cream','navy','silver','gold','multicolor','multi','белый','чёрный','черный','красный',
+    'синий','голубой','зелёный','зеленый','желтый','жёлтый','оранжевый','фиолетовый','розовый','серый',
+    'коричневый','бежевый','кремовый','золотой','серебристый','мультиколор','разноцветный','хаки','бордовый',
+    'сиреневый','лавандовый','терракотовый','индиго'];
+  var colorFilled  = items.filter(function(i) { return !!i.color; }).length;
+  var colorInvalid = items.filter(function(i) {
+    if (!i.color) return false;
+    return VALID_COLORS.indexOf(i.color.toLowerCase().trim()) === -1;
+  });
+  var colorValMap = {};
+  colorInvalid.forEach(function(i) { var c = i.color.trim(); colorValMap[c] = (colorValMap[c]||0)+1; });
+
+  // ── 6. Размер + сетка ──
+  var SIZE_SYSTEMS = {
+    'EU': /^\d{1,3}([\/\-]\d{1,3})?$/,
+    'US': /^\d{1,2}(\.5)?[SMLX]?$/,
+    'UK': /^\d{1,2}(\.5)?$/,
+    'INT': /^(XXS|XS|S|M|L|XL|XXL|XXXL|4XL|5XL|ONE SIZE|FREE SIZE)$/i,
+    'RU': /^\d{2,3}([\/\-]\d{2,3})?$/,
+  };
+  var VALID_SIZES_INT = ['xxs','xs','s','m','l','xl','xxl','xxxl','4xl','5xl','one size','free size','onesize','os'];
+  var sizeFilled = items.filter(function(i) { return !!i.size; }).length;
+  var sizeIssues = [];
+  items.forEach(function(i) {
+    if (!i.size) return;
+    var sz  = i.size.trim();
+    var sys = (i.size_system || '').toUpperCase();
+    var ok  = false;
+    if (!sys || sys === 'INT') ok = VALID_SIZES_INT.indexOf(sz.toLowerCase()) !== -1 || /^\d+$/.test(sz);
+    else if (SIZE_SYSTEMS[sys]) ok = SIZE_SYSTEMS[sys].test(sz);
+    else ok = true;
+    if (!ok) sizeIssues.push({ name: i.title || '?', size: sz, system: sys || 'не указана' });
+  });
+  var sizeValMap = {};
+  sizeIssues.forEach(function(s) { var k = s.size+'|'+s.system; sizeValMap[k] = (sizeValMap[k]||0)+1; });
+
+  // ── 7. Описание ──
+  var descFilled = items.filter(function(i) { return !!i.description; }).length;
+  var descOk     = items.filter(function(i) { return i.description && i.description.length >= 50; }).length;
+  var descShort  = items.filter(function(i) { return i.description && i.description.length < 50; });
+
+  // ── 8. Категория ──
+  var catFilled = items.filter(function(i) { return !!i.product_type; }).length;
+  var catShallow = items.filter(function(i) {
+    if (!i.product_type) return false;
+    var parts = i.product_type.split(/[>,\/]/).filter(function(p) { return p.trim(); });
+    return parts.length < 3;
+  });
+  var catValMap = {};
+  catShallow.forEach(function(i) { var v = (i.product_type||'').trim(); catValMap[v] = (catValMap[v]||0)+1; });
+  var noCat = items.filter(function(i) { return !i.product_type; });
+
+
+  var groupFilled  = items.filter(function(i) { return !!i.item_group_id; }).length;
+  var noGroup      = items.filter(function(i) { return !i.item_group_id; });
+
+  // ── helpers ──
+  function detailTable(rows, cols) {
+    var h = '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">';
+    h += '<tr>' + cols.map(function(c){ return '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);color:var(--text2);">'+c+'</th>'; }).join('') + '</tr>';
+    rows.forEach(function(r) {
+      h += '<tr>' + r.map(function(c){ return '<td style="padding:4px 6px;border-bottom:1px solid var(--border);word-break:break-word;">'+c+'</td>'; }).join('') + '</tr>';
+    });
+    h += '</table>';
+    return h;
+  }
+  function uniqueMap(map, limit) {
+    var keys = Object.keys(map).sort(function(a,b){ return map[b]-map[a]; });
+    var h = detailTable(keys.slice(0,limit||50).map(function(k){ return [k, map[k]]; }), ['Значение','Кол-во']);
+    if (keys.length > (limit||50)) h += '<p style="font-size:11px;color:var(--text3);margin:4px 0 0">...и ещё '+(keys.length-(limit||50))+' значений</p>';
+    return h;
+  }
+  function itemsTable(arr, limit) {
+    return detailTable(arr.slice(0,limit||30).map(function(i){ return [i.title||'—', i.item_group_id||'—']; }), ['Название','Group ID']) +
+      (arr.length > (limit||30) ? '<p style="font-size:11px;color:var(--text3);margin:4px 0 0">...и ещё '+(arr.length-(limit||30))+'</p>' : '');
+  }
+
+  function anCard(title, rows, detailId, detailHtml) {
+    var hasErr = rows.some(function(r) { return r[2] === 'err'; });
+    var hasWarn = rows.some(function(r) { return r[2] === 'warn'; });
+    var sevCls = hasErr ? ' has-err' : hasWarn ? ' has-warn' : '';
+    var h = '<div class="an-card'+sevCls+'">';
+    h += '<p class="an-card-title">'+title+'</p>';
+    rows.forEach(function(r) {
+      h += '<div class="an-row"><span class="an-label">'+r[0]+'</span><span class="an-value '+(r[2]||'')+'">'+r[1]+'</span></div>';
+    });
+    if (detailId && detailHtml) {
+      h += '<button class="btn" style="margin-top:10px;font-size:12px;" onclick="showDetail(\''+detailId+'\')">Подробнее</button>';
+      h += '<div id="'+detailId+'" style="display:none;margin-top:8px;">'+detailHtml+'</div>';
+    }
+    h += '</div>';
+    return h;
+  }
+
+  var html = '<div class="analytics-grid">';
+
+  // 1. Товары
+  html += anCard('Товары', [
+    ['Всего', '<span class="an-big" style="font-size:22px">'+total.toLocaleString('ru')+'</span>', ''],
+    ['В наличии', inStock.toLocaleString('ru'), 'ok'],
+    ['Отсутствуют', outStock.toLocaleString('ru'), outStock > 0 ? 'warn' : 'ok'],
+  ]);
+
+  // 2. Названия
+  var nameDetail = titlesWithSize.length
+    ? '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Товары с размером в названии:</p>'
+      + detailTable(titlesWithSize.slice(0,30).map(function(i){ return [i.title||'—']; }), ['Название'])
+    : '';
+  html += anCard('Названия', [
+    ['Заполнено', titleFilled+' / '+total, titleFilled===total?'ok':'warn'],
+    ['Корректные (без размера)', (titleFilled-titlesWithSize.length), 'ok'],
+    ['Содержат размер', titlesWithSize.length, titlesWithSize.length>0?'err':'ok'],
+  ], titlesWithSize.length ? 'detail-title' : null, nameDetail);
+  if (titlesWithSize.length) html += ''; // conclusion inline
+
+  // 3. Фото
+  var photoRows = [
+    ['С основным фото', withMain+' / '+total, withMain===total?'ok':'err'],
+    ['С доп. фото (≥2)', with2plus+' / '+total, with2plus===total?'ok':'warn'],
+  ];
+  var photoKeys = Object.keys(photoMap).sort(function(a,b){ return parseInt(a)-parseInt(b); });
+  photoKeys.forEach(function(k) {
+    var cls = parseInt(k)===0?'err':parseInt(k)<2?'warn':'ok';
+    photoRows.push([k+' доп. фото', photoMap[k]+' тов.', cls]);
+  });
+  var photoDetail = noExtra.length
+    ? '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Товары без доп. фото:</p>'
+      + itemsTable(noExtra, 30)
+    : '';
+  html += anCard('Фото', photoRows, noExtra.length ? 'detail-photo' : null, photoDetail);
+
+  // 4. Бренд
+  var brandMap = {};
+  items.forEach(function(i) { if (i.brand) { var v = i.brand.trim(); brandMap[v] = (brandMap[v]||0)+1; } });
+  var brandDetail = '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Уникальные бренды:</p>' + uniqueMap(brandMap)
+    + (noBrand.length ? '<p style="font-size:12px;color:var(--text2);margin:8px 0 4px">Без бренда:</p>'+itemsTable(noBrand,30) : '');
+  html += anCard('Бренд', [
+    ['Заполнено', brandFilled+' / '+total, brandFilled===total?'ok':'warn'],
+    ['Уникальных брендов', Object.keys(brandMap).length, ''],
+    ['Не заполнено', (total-brandFilled), total-brandFilled>0?'warn':'ok'],
+  ], 'detail-brand', brandDetail);
+
+  // 5. Цвет
+  var colorDetail = Object.keys(colorValMap).length
+    ? '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Уникальные нестандартные значения:</p>'+uniqueMap(colorValMap)
+    : '';
+  html += anCard('Цвет', [
+    ['Заполнено', colorFilled+' / '+total, ''],
+    ['Нестандартные значения', colorInvalid.length, colorInvalid.length>0?'warn':'ok'],
+  ], colorInvalid.length ? 'detail-color' : null, colorDetail);
+
+  // 6. Размер + сетка
+  var sizeDetail = sizeIssues.length
+    ? '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Уникальные несоответствия:</p>'
+      + uniqueMap(sizeValMap)
+      + '<p style="font-size:12px;color:var(--text2);margin:8px 0 4px">Товары:</p>'
+      + detailTable(sizeIssues.slice(0,30).map(function(s){ return [s.name, s.size, s.system]; }), ['Название','Размер','Сетка'])
+    : '<p class="an-conclusion" style="color:var(--green-text)">✓ Все размеры соответствуют сетке.</p>';
+  // Which size systems are present
+  var sysMap = {};
+  items.forEach(function(i) {
+    var sys = (i.size_system || 'не указана').toUpperCase();
+    sysMap[sys] = (sysMap[sys] || 0) + 1;
+  });
+  var sysRows = Object.keys(sysMap).sort().map(function(s) {
+    return [s, sysMap[s]+' тов.', ''];
+  });
+  var sizeDetailFull = '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Размерные сетки в фиде:</p>'
+    + detailTable(sysRows, ['Сетка','Кол-во товаров'])
+    + (sizeIssues.length
+      ? '<p style="font-size:12px;color:var(--text2);margin:8px 0 4px">Несоответствия (уникальные значения):</p>'+uniqueMap(sizeValMap)
+        +'<p style="font-size:12px;color:var(--text2);margin:8px 0 4px">Товары с несоответствием:</p>'
+        +detailTable(sizeIssues.slice(0,30).map(function(s){ return [s.name, s.size, s.system]; }), ['Название','Размер','Сетка'])
+      : '<p style="font-size:12px;color:var(--green-text);margin:8px 0 0">✓ Все размеры соответствуют сетке.</p>');
+
+  html += anCard('Размер и размерная сетка', [
+    ['Заполнено', sizeFilled+' / '+total, ''],
+    ['Несоответствий сетке', sizeIssues.length, sizeIssues.length>0?'err':'ok'],
+  ], 'detail-size', sizeDetailFull);
+
+  // 7. Описание
+  var descDetail = descShort.length
+    ? '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Товары с коротким описанием:</p>'
+      + detailTable(descShort.slice(0,30).map(function(i){ return [i.title||'—', (i.description||'').length+' симв.']; }), ['Название','Длина'])
+    : '';
+  html += anCard('Описание', [
+    ['Заполнено', descFilled+' / '+total, descFilled===total?'ok':'warn'],
+    ['≥ 50 символов', descOk, 'ok'],
+    ['Короче 50 символов', descShort.length, descShort.length>0?'warn':'ok'],
+  ], descShort.length ? 'detail-desc' : null, descDetail);
+
+  // 8. Категория
+  var catDetail = '';
+  if (noCat.length) catDetail += '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Без категории:</p>'+itemsTable(noCat,20);
+  if (catShallow.length) catDetail += '<p style="font-size:12px;color:var(--text2);margin:8px 0 4px">Неглубокий путь (меньше L3):</p>'+uniqueMap(catValMap);
+  html += anCard('Категория', [
+    ['Заполнено', catFilled+' / '+total, catFilled===total?'ok':'warn'],
+    ['Путь до L3 и глубже', (catFilled-catShallow.length), 'ok'],
+    ['Путь мельче L3', catShallow.length, catShallow.length>0?'err':'ok'],
+    ['Не заполнено', noCat.length, noCat.length>0?'err':'ok'],
+  ], (noCat.length||catShallow.length) ? 'detail-cat' : null, catDetail);
+
+  // 9. Пол и возраст
+  var VALID_GENDERS = ['male','female','unisex','мужской','женский','унисекс','мужчины','женщины'];
+  var VALID_AGES    = ['newborn','infant','toddler','kids','adult','взрослый','дети','младенец','малыш','новорождённый','подростки'];
+
+  var genderFilled = items.filter(function(i){ return !!i.gender; }).length;
+  var ageFilled    = items.filter(function(i){ return !!i.age_group; }).length;
+
+  var genderMap = {};
+  items.forEach(function(i) {
+    var v = i.gender ? i.gender.trim() : 'не указан';
+    genderMap[v] = (genderMap[v]||0)+1;
+  });
+  var genderInvalid = items.filter(function(i) {
+    return i.gender && VALID_GENDERS.indexOf(i.gender.toLowerCase().trim()) === -1;
+  });
+  var genderInvalidMap = {};
+  genderInvalid.forEach(function(i){ var v=i.gender.trim(); genderInvalidMap[v]=(genderInvalidMap[v]||0)+1; });
+
+  var ageMap = {};
+  items.forEach(function(i) {
+    var v = i.age_group ? i.age_group.trim() : 'не указана';
+    ageMap[v] = (ageMap[v]||0)+1;
+  });
+  var ageInvalid = items.filter(function(i) {
+    return i.age_group && VALID_AGES.indexOf(i.age_group.toLowerCase().trim()) === -1;
+  });
+  var ageInvalidMap = {};
+  ageInvalid.forEach(function(i){ var v=i.age_group.trim(); ageInvalidMap[v]=(ageInvalidMap[v]||0)+1; });
+
+  var genderAgeDetail =
+    '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Разбивка по полу:</p>'
+    + uniqueMap(genderMap)
+    + (Object.keys(genderInvalidMap).length
+      ? '<p style="font-size:12px;color:var(--amber-text);margin:8px 0 4px">Нестандартные значения пола:</p>' + uniqueMap(genderInvalidMap)
+      : '')
+    + '<p style="font-size:12px;color:var(--text2);margin:12px 0 4px">Разбивка по возрастной группе:</p>'
+    + uniqueMap(ageMap)
+    + (Object.keys(ageInvalidMap).length
+      ? '<p style="font-size:12px;color:var(--amber-text);margin:8px 0 4px">Нестандартные значения возраста:</p>' + uniqueMap(ageInvalidMap)
+      : '');
+
+  html += anCard('Пол и возраст', [
+    ['Пол заполнен',            genderFilled+' / '+total, genderFilled===total?'ok':'warn'],
+    ['Нестандартные (пол)',      genderInvalid.length,     genderInvalid.length>0?'warn':'ok'],
+    ['Возраст заполнен',         ageFilled+' / '+total,   ageFilled===total?'ok':'warn'],
+    ['Нестандартные (возраст)',  ageInvalid.length,        ageInvalid.length>0?'warn':'ok'],
+  ], 'detail-gender-age', genderAgeDetail);
+
+  // 10. Группировка
+  var groupDetail = noGroup.length ? '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Без группировки:</p>'+itemsTable(noGroup,30) : '';
+  html += anCard('Группировка (item_group_id)', [
+    ['Заполнено', groupFilled+' / '+total, groupFilled===total?'ok':'warn'],
+    ['Не заполнено', noGroup.length, noGroup.length>0?'warn':'ok'],
+  ], noGroup.length ? 'detail-group' : null, groupDetail);
+
+  html += '</div>'; // analytics-grid
+
+  // ── Рекомендации ──
+  var recs = [];
+
+  if (titleFilled < total)
+    recs.push({ sev: 'err', text: 'Заполните поле <b>title</b> у всех товаров. Отсутствует у ' + (total-titleFilled) + ' позиций.', plain: 'Заполните поле title у всех товаров. Отсутствует у ' + (total-titleFilled) + ' позиций.' });
+  if (titlesWithSize.length)
+    recs.push({ sev: 'err', text: 'Уберите размер из названия товара у ' + titlesWithSize.length + ' позиций. Название должно содержать только наименование, цвет и бренд.', plain: 'Уберите размер из названия товара у ' + titlesWithSize.length + ' позиций. Название должно содержать только наименование, цвет и бренд.' });
+  if (withMain < total)
+    recs.push({ sev: 'err', text: 'Добавьте основное фото у ' + (total-withMain) + ' товаров. Поле <b>image_link</b> обязательно.', plain: 'Добавьте основное фото у ' + (total-withMain) + ' товаров. Поле image_link обязательно.' });
+  if (with2plus < total)
+    recs.push({ sev: 'warn', text: 'Рекомендуется минимум 2 дополнительных фото (<b>additional_image_link</b>). ' + (total-with2plus) + ' товаров не соответствуют.', plain: 'Рекомендуется минимум 2 дополнительных фото (additional_image_link). ' + (total-with2plus) + ' товаров не соответствуют.' });
+  if (descFilled < total)
+    recs.push({ sev: 'err', text: 'Заполните описание (<b>description</b>) у ' + (total-descFilled) + ' товаров.', plain: 'Заполните описание (description) у ' + (total-descFilled) + ' товаров.' });
+  if (descShort.length)
+    recs.push({ sev: 'warn', text: 'Описание короче 50 символов у ' + descShort.length + ' товаров. Расширьте текст для улучшения релевантности.', plain: 'Описание короче 50 символов у ' + descShort.length + ' товаров. Расширьте текст для улучшения релевантности.' });
+  if (brandFilled < total)
+    recs.push({ sev: 'warn', text: 'Заполните бренд (<b>brand</b>) у ' + (total-brandFilled) + ' товаров.', plain: 'Заполните бренд (brand) у ' + (total-brandFilled) + ' товаров.' });
+  if (colorInvalid.length)
+    recs.push({ sev: 'warn', text: 'Нестандартные значения цвета у ' + colorInvalid.length + ' товаров. Используйте стандартные названия цветов (например: белый, чёрный, красный).', plain: 'Нестандартные значения цвета у ' + colorInvalid.length + ' товаров. Используйте стандартные названия цветов (например: белый, чёрный, красный).' });
+  if (sizeIssues.length)
+    recs.push({ sev: 'err', text: 'Размер не соответствует размерной сетке у ' + sizeIssues.length + ' товаров. Проверьте соответствие полей <b>size</b> и <b>size_system</b>.', plain: 'Размер не соответствует размерной сетке у ' + sizeIssues.length + ' товаров. Проверьте соответствие полей size и size_system.' });
+  if (noCat.length)
+    recs.push({ sev: 'err', text: 'Заполните категорию (<b>product_type</b>) у ' + noCat.length + ' товаров.', plain: 'Заполните категорию (product_type) у ' + noCat.length + ' товаров.' });
+  if (catShallow.length)
+    recs.push({ sev: 'err', text: 'Углубите путь категории до минимум L3 (пример: <b>Одежда > Мужская > Футболки</b>) у ' + catShallow.length + ' товаров.', plain: 'Углубите путь категории до минимум L3 (пример: Одежда > Мужская > Футболки) у ' + catShallow.length + ' товаров.' });
+  if (noGroup.length)
+    recs.push({ sev: 'warn', text: 'Добавьте <b>item_group_id</b> для группировки вариантов товара. Отсутствует у ' + noGroup.length + ' позиций.', plain: 'Добавьте item_group_id для группировки вариантов товара. Отсутствует у ' + noGroup.length + ' позиций.' });
+  if (outStock > 0)
+    recs.push({ sev: 'info', text: outStock + ' товаров отмечены как отсутствующие (<b>out of stock</b>). Убедитесь что остатки актуальны.', plain: outStock + ' товаров отмечены как отсутствующие (out of stock). Убедитесь что остатки актуальны.' });
+
+  if (recs.length === 0) {
+    html += '<div style="background:var(--green-bg);border:1px solid var(--green-text);border-radius:var(--r-lg);padding:1.25rem;margin-top:1.5rem;">'
+      + '<p style="margin:0;font-size:15px;font-weight:600;color:var(--green-text)">✓ Фид в отличном состоянии</p>'
+      + '<p style="margin:6px 0 0;font-size:13px;color:var(--green-text)">Все проверки пройдены. Замечаний нет.</p>'
+      + '</div>';
+  } else {
+    var errCount  = recs.filter(function(r){ return r.sev==='err'; }).length;
+    var warnCount = recs.filter(function(r){ return r.sev==='warn'; }).length;
+    window._recsList = recs;
+    window._recsPlainCache = recs.map(function(r, i) { return (i+1) + '. ' + r.plain; }).join('\n');
+    html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-lg);padding:1.25rem;margin-top:1.5rem;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">';
+    html += '<p style="margin:0;font-size:15px;font-weight:600;">Рекомендации по фиду</p>';
+    html += '<button class="btn" id="copy-all-recs" style="font-size:12px;" onclick="copyAllRecs()">📋 Скопировать всё</button>';
+    html += '</div>';
+    html += '<p style="margin:0 0 1rem;font-size:13px;color:var(--text2);">';
+    if (errCount)  html += '<span style="color:var(--red-text);font-weight:500;">● Критичных: ' + errCount + '</span>  ';
+    if (warnCount) html += '<span style="color:var(--amber-text);font-weight:500;">● Рекомендуемых: ' + warnCount + '</span>';
+    html += '</p>';
+    recs.forEach(function(r, idx) {
+      var bg  = r.sev==='err' ? 'var(--red-bg)' : r.sev==='warn' ? 'var(--amber-bg)' : 'var(--blue-soft)';
+      var col = r.sev==='err' ? 'var(--red-text)' : r.sev==='warn' ? 'var(--amber-text)' : 'var(--blue)';
+      var icon = r.sev==='err' ? '✗' : r.sev==='warn' ? '⚠' : 'ℹ';
+      var q = String.fromCharCode(39);
+      html += '<div style="display:flex;gap:10px;padding:10px 12px;background:'+bg+';border-radius:var(--r-md);margin-bottom:8px;align-items:flex-start;">'
+        + '<span style="color:'+col+';font-weight:700;flex-shrink:0;">'+icon+'</span>'
+        + '<span style="font-size:13px;line-height:1.5;color:var(--text);flex:1;">'+r.text+'</span>'
+        + '<button class="btn copy-rec-btn" style="font-size:11px;padding:3px 8px;flex-shrink:0;" onclick="copyOneRec(this,'+idx+')" data-rec-idx="'+idx+'">⧉</button>'
+        + '</div>';
+    });
+    html += '</div>';
+  }
+
+  document.getElementById('feed-analytics').innerHTML = html;
+  log('renderAnalytics OK');
+}
+
+
+function renderFields(items) {
+  var total = items.length, html = '';
+  for (var i = 0; i < FIELDS.length; i++) {
+    var key = FIELDS[i].key, label = FIELDS[i].label, req = FIELDS[i].req;
+    var filled = 0;
+    for (var j = 0; j < items.length; j++) { if (items[j][key]) filled++; }
+    var p = pct(filled, total);
+    var cls = p === 100 ? 'tag-ok' : p === 0 ? 'tag-err' : 'tag-warn';
+    html += '<div class="field-row">'
+      + '<span class="tag ' + cls + '">' + p + '%</span>'
+      + '<span>' + label + '</span>'
+      + '<span class="count">' + filled + ' / ' + total + '</span>'
+      + '<span class="' + (req ? 'req-badge' : 'opt-badge') + '">' + (req ? 'обязательное' : 'опционально') + '</span>'
+      + '</div>';
+  }
+  document.getElementById('tab-fields').innerHTML = '<div class="card">' + html + '</div>';
+}
+
+function renderItems(items) {
+  if (!items.length) { document.getElementById('items-list').innerHTML = '<div class="empty-state">Ничего не найдено</div>'; return; }
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i], rows = '';
+    for (var j = 0; j < FIELDS.length; j++) {
+      var v = item[FIELDS[j].key];
+      rows += '<div class="item-row"><span class="ik">' + FIELDS[j].label + '</span><span class="iv' + (v ? '' : ' miss') + '">' + (v || '—') + '</span></div>';
+    }
+    html += '<div class="item-card"><div class="item-header"><span class="item-title">' + (item.title || 'Без названия') + '</span><span class="item-num">Товар ' + (i+1) + '</span></div>' + rows + '</div>';
+  }
+  document.getElementById('items-list').innerHTML = html;
+}
+
+function filterItems() {
+  var q = document.getElementById('search').value.toLowerCase();
+  renderItems(q ? allItems.filter(function(i){ return (i.title||'').toLowerCase().indexOf(q) !== -1; }) : allItems);
+}
+
+function showInnerTab(tab) {
+  document.getElementById('tab-fields').style.display = tab === 'fields' ? 'block' : 'none';
+  document.getElementById('tab-items').style.display  = tab === 'items'  ? 'block' : 'none';
+  document.getElementById('t-fields').classList.toggle('active', tab === 'fields');
+  document.getElementById('t-items').classList.toggle('active',  tab === 'items');
+}
+
+function parseXLSX(arrayBuffer) {
+  var wb = XLSX.read(arrayBuffer, { type: 'array' });
+  var sheet = wb.Sheets[wb.SheetNames[0]];
+  var rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+  log('XLSX rows:', rows.length);
+  if (!rows.length) return [];
+  return rows.map(function(row) {
+    return {
+      title:                   row.title ? String(row.title).trim() : null,
+      description:             row.description ? String(row.description).trim() : null,
+      link:                    null,
+      image_link:              row.image ? String(row.image).trim() : null,
+      availability:            row.availability ? String(row.availability).trim() : null,
+      price:                   row.price !== null ? String(row.price).trim() : null,
+      brand:                   row.brand ? String(row.brand).trim() : null,
+      color:                   row.color ? String(row.color).trim() : null,
+      size:                    row.size !== null && row.size !== undefined ? String(row.size).trim() : null,
+      gender:                  row.gender ? String(row.gender).trim() : null,
+      age_group:               row.age_group ? String(row.age_group).trim() : null,
+      condition:               row.condition ? String(row.condition).trim() : null,
+      sale_price:              row.sale_price ? String(row.sale_price).trim() : null,
+      product_type:            row.product_type ? String(row.product_type).trim() : null,
+      material:                row.material ? String(row.material).trim() : null,
+      pattern:                 null,
+      additional_image_link:   null,
+      item_group_id:           row.item_group_id ? String(row.item_group_id).trim() : null,
+      product_highlight:       null,
+      energy_efficiency_class: null,
+      size_system:             row.size_system ? String(row.size_system).trim() : null,
+    };
+  });
+}
+
+function showResult(items) {
+  if (!items.length) {
+    document.getElementById('feed-loader').style.display = 'none';
+    document.getElementById('upload-zone').style.display = '';
+    return;
+  }
+  allItems = items;
+  document.getElementById('feed-loader').style.display = 'none';
+  document.getElementById('result').style.display = 'block';
+  try { renderAnalytics(allItems); } catch(ex) { logErr('renderAnalytics: ' + ex.message); }
+  try { renderFields(allItems);  } catch(ex) { logErr('renderFields: '  + ex.message); }
+  try { renderItems(allItems);   } catch(ex) { logErr('renderItems: '   + ex.message); }
+  log('Всё готово ✓');
+}
+
+function processFile(file, fmt) {
+  log('processFile:', file.name, fmt);
+  document.getElementById('fname').textContent = file.name + ' · ' + (file.size / 1024).toFixed(1) + ' КБ';
+  document.getElementById('upload-zone').style.display = 'none';
+  document.getElementById('feed-loader').style.display = 'block';
+  var reader = new FileReader();
+  reader.onerror = function() { logErr('FileReader error'); };
+  if (fmt === 'xlsx') {
+    reader.onload = function(e) {
+      setTimeout(function() {
+        try { showResult(parseXLSX(e.target.result)); }
+        catch(ex) { logErr('parseXLSX: ' + ex.message); document.getElementById('feed-loader').style.display='none'; document.getElementById('upload-zone').style.display=''; }
+      }, 50);
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    reader.onload = function(e) {
+      setTimeout(function() {
+        try { showResult(parseXML(e.target.result)); }
+        catch(ex) { logErr('parseXML: ' + ex.message); document.getElementById('feed-loader').style.display='none'; document.getElementById('upload-zone').style.display=''; }
+      }, 50);
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+}
+
+
+function appReset() {
+  document.getElementById('upload-zone').style.display = '';
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('feed-loader').style.display = 'none';
+  document.getElementById('fi-xml').value = '';
+  document.getElementById('fi-xlsx').value = '';
+  allItems = [];
+}
+
+
+// ── партнёры / канбан ────────────────────────────────────────
+var STAGES = [
+  { id: 's0', label: 'Новый партнёр' },
+  { id: 's1', label: 'Установочная встреча проведена' },
+  { id: 's2', label: 'Тестовые доступы / Ждём фид' },
+  { id: 's3', label: 'Тестирование / Проверка фида' },
+  { id: 's4', label: 'Ждём обучение' },
+  { id: 's5', label: 'Проведено обучение' },
+  { id: 's6', label: 'Ждём данные для прода' },
+  { id: 's6b', label: 'Заведен в Прод' },
+  { id: 's7', label: 'Тестирование' },
+  { id: 's8', label: 'Запущен' },
+];
+
+var STAGE_COLORS = ['#8b5cf6','#3b82f6','#06b6d4','#f59e0b','#ec4899','#10b981','#f97316','#ef4444','#6366f1','#22c55e'];
+
+// ── общая утилита скачивания файла через base64 data URL ───────────────────
+// Используется и для экспорта партнёров, и для скачивания логотипа.
+// base64 (не percent-encoding) выбран намеренно: некоторые расширения-
+// блокировщики прогоняют data: URL через atob() и падают на percent-encoded
+// содержимом, ожидая строго base64.
+function utf8ToBase64(str) {
+  var bytes = new TextEncoder().encode(str);
+  var binary = '';
+  for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+function triggerFileDownload(filename, mimeType, content) {
+  try {
+    var b64 = utf8ToBase64(content);
+    var dataUrl = 'data:' + mimeType + ';base64,' + b64;
+    var a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    log('Файл скачан (base64 data URL): ' + filename);
+    return true;
+  } catch (ex) {
+    logErr('triggerFileDownload failed: ' + ex.message);
+    return false;
+  }
+}
+
+// load from localStorage on startup
+function exportPartners() {
+  var data = JSON.stringify({ partners: partners, nextPartnerId: nextPartnerId }, null, 2);
+  var filename = 'merchant-partners-' + new Date().toISOString().slice(0,10) + '.json';
+  var ok = triggerFileDownload(filename, 'application/json', data);
+  if (!ok) alert('Не удалось скачать файл автоматически. Попробуйте другой браузер.');
+}
+
+function importPartners(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var data = JSON.parse(e.target.result);
+      if (!Array.isArray(data.partners)) throw new Error('Неверный формат файла');
+      partners = data.partners;
+      nextPartnerId = data.nextPartnerId || 1;
+      savePartners();
+      renderKanban();
+      log('Загружено партнёров: ' + partners.length);
+    } catch(ex) {
+      logErr('Ошибка импорта: ' + ex.message);
+      alert('Ошибка загрузки файла: ' + ex.message);
+    }
+    input.value = '';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function loadPartners() {
+  try {
+    var raw = localStorage.getItem('merchant_tools_partners');
+    if (raw) {
+      var data = JSON.parse(raw);
+      partners = data.partners || [];
+      nextPartnerId = data.nextPartnerId || 1;
+    }
+  } catch(e) { logErr('localStorage load error: ' + e.message); }
+}
+function savePartners() {
+  try {
+    localStorage.setItem('merchant_tools_partners', JSON.stringify({
+      partners: partners,
+      nextPartnerId: nextPartnerId
+    }));
+  } catch(e) { logErr('localStorage save error: ' + e.message); }
+}
+
+var partners = [];
+var nextPartnerId = 1;
+var activePartnerId = null;
+loadPartners();
+
+function renderKanban() {
+  var board = document.getElementById('kanban-board');
+  if (!board) return;
+  var html = '';
+  for (var si = 0; si < STAGES.length; si++) {
+    var stage = STAGES[si];
+    var cards = partners.filter(function(p) { return p.stage === stage.id; });
+    var progressPct = Math.round((si / (STAGES.length - 1)) * 100);
+    var borderColor = 'hsl(' + (260 - progressPct * 1.0) + ', 55%, 55%)';
+    html += '<div class="kanban-col" data-stage="' + stage.id + '" style="border-top-color:' + borderColor + '">';
+    html += '<div class="kanban-col-header">';
+    html += '<span><span class="kanban-stage-dot" style="background:' + STAGE_COLORS[si] + '"></span>' + stage.label + '</span>';
+    html += '<span class="kanban-count">' + cards.length + '</span>';
+    html += '</div>';
+    for (var ci = 0; ci < cards.length; ci++) {
+      var p = cards[ci];
+      var q = String.fromCharCode(39);
+      html += '<div class="kanban-card" draggable="true" data-id="' + p.id + '" onclick="openCard(' + p.id + ')">';
+      html += '<div class="kanban-card-name">' + p.name + '</div>';
+      html += '<div class="kanban-card-type ' + p.type + '">' + p.type.toUpperCase() + '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  board.innerHTML = html;
+  initDragDrop();
+}
+
+function initDragDrop() {
+  var board = document.getElementById('kanban-board');
+  var draggingId = null;
+
+  var cards = board.querySelectorAll('.kanban-card');
+  cards.forEach(function(card) {
+    card.addEventListener('dragstart', function(e) {
+      draggingId = parseInt(card.getAttribute('data-id'));
+      setTimeout(function() { card.classList.add('dragging'); }, 0);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', function() {
+      card.classList.remove('dragging');
+      board.querySelectorAll('.kanban-col').forEach(function(col) {
+        col.classList.remove('drag-over');
+      });
+      draggingId = null;
+    });
+    // Prevent click from firing after drag
+    card.addEventListener('dragstart', function() {
+      card._dragged = false;
+      card.addEventListener('mousemove', function handler() {
+        card._dragged = true;
+        card.removeEventListener('mousemove', handler);
+      });
+    });
+  });
+
+  var cols = board.querySelectorAll('.kanban-col');
+  cols.forEach(function(col) {
+    col.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      col.classList.add('drag-over');
+    });
+    col.addEventListener('dragleave', function(e) {
+      // Only remove if leaving the col itself, not a child
+      if (!col.contains(e.relatedTarget)) {
+        col.classList.remove('drag-over');
+      }
+    });
+    col.addEventListener('drop', function(e) {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      if (draggingId === null) return;
+      var newStage = col.getAttribute('data-stage');
+      for (var i = 0; i < partners.length; i++) {
+        if (partners[i].id === draggingId) {
+          partners[i].stage = newStage;
+          break;
+        }
+      }
+      savePartners();
+      renderKanban();
+    });
+  });
+}
+
+function openAddPartner() {
+  document.getElementById('partner-name-input').value = '';
+  document.getElementById('modal-add').style.display = 'flex';
+  setTimeout(function() { document.getElementById('partner-name-input').focus(); }, 50);
+}
+
+function closeAddPartner() {
+  document.getElementById('modal-add').style.display = 'none';
+}
+
+function savePartner() {
+  var name = document.getElementById('partner-name-input').value.trim();
+  if (!name) { document.getElementById('partner-name-input').focus(); return; }
+  var type = document.getElementById('partner-type-input').value;
+  partners.push({ id: nextPartnerId++, name: name, type: type, stage: 's0', checks: {} });
+  savePartners();
+  closeAddPartner();
+  renderKanban();
+}
+
+function openCard(id) {
+  var p = null;
+  for (var i = 0; i < partners.length; i++) { if (partners[i].id === id) { p = partners[i]; break; } }
+  if (!p) return;
+  activePartnerId = id;
+  document.getElementById('card-title').textContent = p.name;
+
+  // Build checklist for this partner type
+  var sections = CHECKLISTS[p.type] || [];
+  var stageOptions = STAGES.map(function(s) {
+    return '<option value="' + s.id + '"' + (p.stage === s.id ? ' selected' : '') + '>' + s.label + '</option>';
+  }).join('');
+
+  var html = '<p class="card-section-label">Этап</p>';
+  html += '<select class="card-stage-select" onchange="updateStage(' + id + ',this.value)">' + stageOptions + '</select>';
+  html += '<p class="card-section-label">Тип: ' + p.type.toUpperCase() + '</p>';
+
+  if (sections.length) {
+    html += '<p class="card-section-label">Чек-лист</p>';
+    for (var si = 0; si < sections.length; si++) {
+      var sec = sections[si];
+      var secDone = 0;
+      for (var ii = 0; ii < sec.items.length; ii++) { if (p.checks[sec.items[ii].id]) secDone++; }
+      var pv = sec.items.length ? Math.round(secDone / sec.items.length * 100) : 0;
+      html += '<div class="checklist-section">';
+      html += '<div class="cl-section-header">';
+      html += '<p class="checklist-section-title">' + sec.section + '</p>';
+      html += '<div class="checklist-progress"><div class="cl-prog-bar"><div class="cl-prog-fill" style="width:' + pv + '%"></div></div><span class="cl-prog-label">' + secDone + ' / ' + sec.items.length + '</span></div>';
+      html += '</div>';
+      for (var ii = 0; ii < sec.items.length; ii++) {
+        var item = sec.items[ii];
+        var checked = !!p.checks[item.id];
+        var icon = checked ? '<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4L4.5 7.5L10 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '';
+        var q = String.fromCharCode(39);
+        html += '<div class="checklist-item' + (checked ? ' done' : '') + '" onclick="toggleCardCheck(' + id + ',' + q + item.id + q + ')">'
+          + '<div class="cl-check">' + icon + '</div>'
+          + '<div class="cl-label">' + item.label + '</div>'
+          + '</div>';
+      }
+      html += '</div>';
+    }
+  }
+
+  html += '<div style="margin-top:1.5rem;">';
+  html += '<button class="btn card-delete-btn" onclick="deletePartner(' + id + ')">Удалить партнёра</button>';
+  html += '</div>';
+
+  document.getElementById('card-body').innerHTML = html;
+  document.getElementById('modal-card').style.display = 'flex';
+}
+
+function closeCard() {
+  document.getElementById('modal-card').style.display = 'none';
+  activePartnerId = null;
+  renderKanban();
+}
+
+function updateStage(id, stage) {
+  for (var i = 0; i < partners.length; i++) {
+    if (partners[i].id === id) { partners[i].stage = stage; break; }
+  }
+  savePartners();
+  renderKanban();
+}
+
+function toggleCardCheck(id, itemId) {
+  for (var i = 0; i < partners.length; i++) {
+    if (partners[i].id === id) {
+      partners[i].checks[itemId] = !partners[i].checks[itemId];
+      break;
+    }
+  }
+  savePartners();
+  openCard(id);
+}
+
+function deletePartner(id) {
+  partners = partners.filter(function(p) { return p.id !== id; });
+  savePartners();
+  closeCard();
+}
+
+// Close modals on backdrop click
+document.getElementById('modal-add').addEventListener('click', function(e) {
+  if (e.target === this) closeAddPartner();
+});
+document.getElementById('modal-card').addEventListener('click', function(e) {
+  if (e.target === this) closeCard();
+});
+
+// ── формат файла ────────────────────────────────────────────
+var currentFormat = 'xml';
+function setFormat(fmt) {
+  currentFormat = fmt;
+  document.getElementById('fmt-xml').classList.toggle('active', fmt === 'xml');
+  document.getElementById('fmt-xlsx').classList.toggle('active', fmt === 'xlsx');
+  document.getElementById('dz-xml').style.display  = fmt === 'xml'  ? '' : 'none';
+  document.getElementById('dz-xlsx').style.display = fmt === 'xlsx' ? '' : 'none';
+}
+
+// XML
+// ============================================================================
+// SVG IMPORT — парсинг произвольного SVG в универсальную редактируемую модель
+// ============================================================================
+//
+// Архитектура: LogoDocument { canvas, layers: LogoNode[] }
+// LogoNode: { id, type, tag, transform, bbox, style, geometry/children/text/image }
+//
+// Принципы:
+// - Группы (<g>) НЕ разворачиваются — становятся LogoNode{type:'group'}
+// - <path> остаётся path, не растрируется, не аппроксимируется
+// - <text> остаётся текстовым узлом с реальными текстовыми свойствами
+// - transform всегда разложен в {x, y, scaleX, scaleY, rotation}
+// - Никакой автоматической классификации "фон/лого" — каждый узел равноправен
+// ============================================================================
+
+var SHAPE_TAGS = ['rect', 'circle', 'ellipse', 'polygon', 'polyline', 'line'];
+var SKIP_TAGS  = ['defs', 'style', 'title', 'desc', 'metadata', 'clipPath', 'mask'];
+
+var _nodeIdCounter = 0;
+function nextNodeId() { return 'node_' + (++_nodeIdCounter); }
+
+// ── разложение transform-матрицы в человеко-читаемые поля ──────────────────
+// SVG задаёт transform как строку: "translate(x,y) rotate(a) scale(sx,sy)"
+// или как единую матрицу matrix(a,b,c,d,e,f). Чтобы UI могло напрямую
+// биндить x/y/scale/rotation на слайдеры, мы декомпозируем итоговую матрицу,
+// а не храним её сырой.
+function decomposeMatrix(m) {
+  // m = [a, b, c, d, e, f]  (стандартный порядок SVG matrix())
+  var a = m[0], b = m[1], c = m[2], d = m[3], e = m[4], f = m[5];
+  var scaleX = Math.sqrt(a * a + b * b);
+  var scaleY = (a * d - b * c) / (scaleX || 1);
+  var rotation = Math.atan2(b, a) * (180 / Math.PI);
+  return { x: e, y: f, scaleX: scaleX, scaleY: scaleY, rotation: rotation };
+}
+
+function identityTransform() {
+  return { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 };
+}
+
+// Получает суммарную матрицу элемента через нативный SVG API (надёжнее, чем
+// парсить строку transform руками — браузер сам учитывает все варианты:
+// translate/rotate/scale/skew/matrix и их комбинации через пробел).
+function getElementMatrix(el) {
+  try {
+    if (el.transform && el.transform.baseVal && el.transform.baseVal.consolidate) {
+      var consolidated = el.transform.baseVal.consolidate();
+      if (consolidated) {
+        var m = consolidated.matrix;
+        return [m.a, m.b, m.c, m.d, m.e, m.f];
+      }
+    }
+  } catch (e) { /* fall through to identity */ }
+  return [1, 0, 0, 1, 0, 0];
+}
+
+// ── извлечение стиля (fill/stroke/opacity) с учётом style="" и атрибутов ───
+function extractStyle(el, inherited) {
+  var inlineStyle = el.getAttribute('style') || '';
+  var styleMap = {};
+  inlineStyle.split(';').forEach(function (rule) {
+    var parts = rule.split(':');
+    if (parts.length === 2) styleMap[parts[0].trim()] = parts[1].trim();
+  });
+  function pick(prop) {
+    return styleMap[prop] != null ? styleMap[prop] : el.getAttribute(prop);
+  }
+  var fillRaw = pick('fill');
+  var strokeRaw = pick('stroke');
+  var strokeWidth = parseFloat(pick('stroke-width'));
+  var opacity = parseFloat(pick('opacity'));
+  var fillRuleRaw = pick('fill-rule');
+
+  // SVG-спецификация: если атрибут fill не указан вообще (в отличие от
+  // явного fill="none"), дефолтное значение — чёрный (#000000), и оно
+  // наследуется от родителя, если родитель его задал.
+  //
+  // Исключение из буквального следования спецификации: если у САМОГО
+  // элемента (не унаследованно) явно указан stroke, а fill при этом
+  // отсутствует — это почти всегда означает "контур/обводка без заливки"
+  // (автор файла забыл явно прописать fill="none", понадеявшись на
+  // визуальный контекст инструмента экспорта). Буквальный дефолт "чёрный"
+  // в этом случае залил бы контур сплошным чёрным кругом, что почти
+  // никогда не было намерением автора.
+  var hasOwnStroke = strokeRaw && strokeRaw.toLowerCase() !== 'none';
+  var fill;
+  if (fillRaw == null && hasOwnStroke) {
+    fill = null;
+  } else if (fillRaw == null) {
+    fill = (inherited && inherited.fill !== undefined) ? inherited.fill : '#000000';
+  } else if (fillRaw.toLowerCase() === 'none') {
+    fill = null;
+  } else {
+    fill = fillRaw;
+  }
+
+  var stroke = strokeRaw && strokeRaw.toLowerCase() !== 'none' ? strokeRaw : null;
+
+  // fill-rule также наследуется от родителя (например, <g fill-rule="evenodd">
+  // оборачивающий несколько <path> без собственного fill-rule).
+  var fillRule = fillRuleRaw || (inherited && inherited.fillRule) || 'nonzero';
+
+  return {
+    fill: fill,
+    stroke: stroke,
+    strokeWidth: isNaN(strokeWidth) ? 1 : strokeWidth,
+    opacity: isNaN(opacity) ? 1 : opacity,
+    fillRule: fillRule
+  };
+}
+
+// ── измерение геометрии через нативный getBBox() ───────────────────────────
+// Единственный надёжный способ получить реальные границы path с кривыми —
+// не парсить 'd' руками. Требует временной вставки клона в живой DOM.
+function measureBBox(el, measureSvg) {
+  var clone = el.cloneNode(true);
+  measureSvg.appendChild(clone);
+  var bbox = null;
+  try { bbox = clone.getBBox(); } catch (e) { bbox = null; }
+  measureSvg.removeChild(clone);
+  if (!bbox) return null;
+  return { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height };
+}
+
+// ── построение геометрии под конкретный тип фигуры ─────────────────────────
+function extractGeometry(el, tag) {
+  switch (tag) {
+    case 'path':
+      return { d: el.getAttribute('d') || '' };
+    case 'rect':
+      return {
+        x: parseFloat(el.getAttribute('x')) || 0,
+        y: parseFloat(el.getAttribute('y')) || 0,
+        width: parseFloat(el.getAttribute('width')) || 0,
+        height: parseFloat(el.getAttribute('height')) || 0,
+        rx: parseFloat(el.getAttribute('rx')) || 0,
+        ry: parseFloat(el.getAttribute('ry')) || 0
+      };
+    case 'circle':
+      return {
+        cx: parseFloat(el.getAttribute('cx')) || 0,
+        cy: parseFloat(el.getAttribute('cy')) || 0,
+        r: parseFloat(el.getAttribute('r')) || 0
+      };
+    case 'ellipse':
+      return {
+        cx: parseFloat(el.getAttribute('cx')) || 0,
+        cy: parseFloat(el.getAttribute('cy')) || 0,
+        rx: parseFloat(el.getAttribute('rx')) || 0,
+        ry: parseFloat(el.getAttribute('ry')) || 0
+      };
+    case 'polygon':
+    case 'polyline':
+      return { points: el.getAttribute('points') || '' };
+    case 'line':
+      return {
+        x1: parseFloat(el.getAttribute('x1')) || 0,
+        y1: parseFloat(el.getAttribute('y1')) || 0,
+        x2: parseFloat(el.getAttribute('x2')) || 0,
+        y2: parseFloat(el.getAttribute('y2')) || 0
+      };
+    default:
+      return {};
+  }
+}
+
+// ── извлечение текстовых свойств для <text>/<tspan> ─────────────────────────
+function extractTextProps(el) {
+  var tspan = el.querySelector('tspan');
+  var content = (tspan || el).textContent || '';
+  var computed = {}; // в реальном DOM можно getComputedStyle, здесь — атрибуты
+  function attr(node, name, fallback) {
+    var v = node.getAttribute(name);
+    return v != null ? v : fallback;
+  }
+  return {
+    content: content,
+    fontFamily: attr(el, 'font-family', 'sans-serif'),
+    fontSize: parseFloat(attr(el, 'font-size', '16')) || 16,
+    fontWeight: parseFloat(attr(el, 'font-weight', '400')) || 400,
+    letterSpacing: parseFloat(attr(el, 'letter-spacing', '0')) || 0,
+    textAnchor: attr(el, 'text-anchor', 'start'),
+    x: parseFloat(attr(el, 'x', '0')) || 0,
+    y: parseFloat(attr(el, 'y', '0')) || 0
+  };
+}
+
+// ── рекурсивный обход одного элемента → LogoNode ────────────────────────────
+function parseElement(el, measureSvg, inherited) {
+  var tag = el.tagName.toLowerCase();
+  if (SKIP_TAGS.indexOf(tag) !== -1) return null;
+
+  var matrix = getElementMatrix(el);
+  var transform = decomposeMatrix(matrix);
+  var style = extractStyle(el, inherited);
+  var bbox = measureBBox(el, measureSvg);
+
+  var node = {
+    id: nextNodeId(),
+    tag: tag,
+    transform: transform,
+    bbox: bbox,
+    style: style,
+    visible: true,
+    locked: false
+  };
+
+  if (tag === 'g' || tag === 'svg') {
+    node.type = 'group';
+    // Дети наследуют fill/fill-rule от этой группы, если сами их не переопределяют.
+    var childInherited = { fill: style.fill, fillRule: style.fillRule };
+    node.children = Array.prototype.slice.call(el.children)
+      .map(function (child) { return parseElement(child, measureSvg, childInherited); })
+      .filter(Boolean);
+    return node;
+  }
+
+  if (tag === 'text') {
+    node.type = 'text';
+    node.text = extractTextProps(el);
+    return node;
+  }
+
+  if (tag === 'image') {
+    node.type = 'image';
+    node.image = {
+      href: el.getAttribute('href') || el.getAttribute('xlink:href') || '',
+      x: parseFloat(el.getAttribute('x')) || 0,
+      y: parseFloat(el.getAttribute('y')) || 0,
+      width: parseFloat(el.getAttribute('width')) || 0,
+      height: parseFloat(el.getAttribute('height')) || 0
+    };
+    return node;
+  }
+
+  if (tag === 'path') {
+    node.type = 'path';
+    node.geometry = extractGeometry(el, tag);
+    return node;
+  }
+
+  if (SHAPE_TAGS.indexOf(tag) !== -1) {
+    node.type = 'shape';
+    node.shapeTag = tag;
+    node.geometry = extractGeometry(el, tag);
+    return node;
+  }
+
+  // use/symbol/неизвестные теги — сохраняем как непрозрачный узел,
+  // чтобы импорт не падал на нестандартной разметке.
+  node.type = 'unknown';
+  node.rawOuterHTML = el.outerHTML;
+  return node;
+}
+
+// ── точка входа: строка SVG → LogoDocument ──────────────────────────────────
+function parseSVGToDocument(svgText) {
+  var parser = new DOMParser();
+  var doc = parser.parseFromString(svgText, 'image/svg+xml');
+  var svgEl = doc.querySelector('svg');
+  if (!svgEl) throw new Error('Не найден корневой тег <svg>');
+  if (doc.querySelector('parsererror')) throw new Error('SVG содержит синтаксическую ошибку');
+
+  var vb = (svgEl.getAttribute('viewBox') || '').trim().split(/\s+/).map(Number);
+  var width, height, viewBox;
+  if (vb.length === 4 && !vb.some(isNaN)) {
+    viewBox = { minX: vb[0], minY: vb[1], width: vb[2], height: vb[3] };
+    width = vb[2]; height = vb[3];
+  } else {
+    width = parseFloat(svgEl.getAttribute('width')) || 100;
+    height = parseFloat(svgEl.getAttribute('height')) || 100;
+    viewBox = { minX: 0, minY: 0, width: width, height: height };
+  }
+
+  // Измерение bbox требует реального DOM с layout — временный скрытый SVG.
+  var measureSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  measureSvg.setAttribute('viewBox', viewBox.minX + ' ' + viewBox.minY + ' ' + viewBox.width + ' ' + viewBox.height);
+  measureSvg.style.position = 'absolute';
+  measureSvg.style.left = '-99999px';
+  measureSvg.style.width = width + 'px';
+  measureSvg.style.height = height + 'px';
+  document.body.appendChild(measureSvg);
+
+  var topLevel = Array.prototype.slice.call(svgEl.children);
+  // Корневой <svg> часто несёт fill="none" как глобальный дефолт (стандартная
+  // практика экспорта из Figma/Illustrator) — это и есть стартовый контекст
+  // наследования для прямых потомков, если они сами не переопределяют fill.
+  var rootFillAttr = svgEl.getAttribute('fill');
+  var rootInherited = {
+    fill: rootFillAttr && rootFillAttr.toLowerCase() !== 'none' ? rootFillAttr : undefined,
+    fillRule: svgEl.getAttribute('fill-rule') || 'nonzero'
+  };
+  var layers = topLevel
+    .map(function (el) { return parseElement(el, measureSvg, rootInherited); })
+    .filter(Boolean);
+
+  document.body.removeChild(measureSvg);
+
+  return {
+    canvas: { width: width, height: height, viewBox: viewBox },
+    layers: layers
+  };
+}
+
+// ============================================================================
+// Экспорт для использования в редакторе / Node (тестирование)
+// ============================================================================
+
+// ============================================================================
+// SVG EXPORT/RENDER — рендер LogoDocument обратно в SVG-разметку
+// ============================================================================
+// Используется и для живого предпросмотра в редакторе, и для финального
+// экспорта файла. Не зависит от того, как документ был импортирован —
+// работает с любым LogoDocument, включая узлы, добавленные пользователем
+// вручную через UI (новые фигуры, текст и т.д.), а не только импортированные.
+// ============================================================================
+
+function escapeXML(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Собирает transform="..." строку из разложенных полей. Порядок операций
+// важен: translate → rotate → scale, чтобы поворот/масштаб происходили
+// вокруг локального начала координат элемента, а не холста.
+function buildTransformAttr(t) {
+  if (!t) return '';
+  var parts = [];
+  if (t.x || t.y) parts.push('translate(' + t.x + ',' + t.y + ')');
+  if (t.rotation) parts.push('rotate(' + t.rotation + ')');
+  if (t.scaleX !== 1 || t.scaleY !== 1) parts.push('scale(' + t.scaleX + ',' + t.scaleY + ')');
+  return parts.length ? ' transform="' + parts.join(' ') + '"' : '';
+}
+
+function buildStyleAttrs(style) {
+  if (!style) return '';
+  var attrs = '';
+  attrs += ' fill="' + (style.fill || 'none') + '"';
+  if (style.stroke) {
+    attrs += ' stroke="' + style.stroke + '"';
+    attrs += ' stroke-width="' + style.strokeWidth + '"';
+  }
+  if (style.opacity != null && style.opacity !== 1) {
+    attrs += ' opacity="' + style.opacity + '"';
+  }
+  return attrs;
+}
+
+function renderGeometryAttrs(node) {
+  var g = node.geometry || {};
+  switch (node.type === 'shape' ? node.shapeTag : node.tag) {
+    case 'rect':
+      return ' x="' + g.x + '" y="' + g.y + '" width="' + g.width + '" height="' + g.height + '"'
+        + (g.rx ? ' rx="' + g.rx + '"' : '') + (g.ry ? ' ry="' + g.ry + '"' : '');
+    case 'circle':
+      return ' cx="' + g.cx + '" cy="' + g.cy + '" r="' + g.r + '"';
+    case 'ellipse':
+      return ' cx="' + g.cx + '" cy="' + g.cy + '" rx="' + g.rx + '" ry="' + g.ry + '"';
+    case 'polygon':
+    case 'polyline':
+      return ' points="' + g.points + '"';
+    case 'line':
+      return ' x1="' + g.x1 + '" y1="' + g.y1 + '" x2="' + g.x2 + '" y2="' + g.y2 + '"';
+    default:
+      return '';
+  }
+}
+
+// Рендерит один узел в строку XML. Рекурсивен для групп.
+function renderNode(node) {
+  if (!node || node.visible === false) return '';
+
+  var transformAttr = buildTransformAttr(node.transform);
+
+  if (node.type === 'group') {
+    var inner = (node.children || []).map(renderNode).join('');
+    return '<g' + transformAttr + '>' + inner + '</g>';
+  }
+
+  if (node.type === 'path') {
+    var fillRuleAttr = node.style.fillRule && node.style.fillRule !== 'nonzero'
+      ? ' fill-rule="' + node.style.fillRule + '"' : '';
+    return '<path d="' + escapeXML(node.geometry.d) + '"' + fillRuleAttr
+      + buildStyleAttrs(node.style) + transformAttr + '/>';
+  }
+
+  if (node.type === 'shape') {
+    var tag = node.shapeTag;
+    return '<' + tag + renderGeometryAttrs(node) + buildStyleAttrs(node.style) + transformAttr + '/>';
+  }
+
+  if (node.type === 'text') {
+    var t = node.text;
+    var styleStr = 'font-family:' + escapeXML(t.fontFamily) + ';font-size:' + t.fontSize + 'px;'
+      + 'font-weight:' + t.fontWeight + ';letter-spacing:' + t.letterSpacing + 'px;';
+    return '<text x="' + t.x + '" y="' + t.y + '" text-anchor="' + t.textAnchor + '"'
+      + ' style="' + styleStr + '"' + buildStyleAttrs(node.style) + transformAttr + '>'
+      + escapeXML(t.content) + '</text>';
+  }
+
+  if (node.type === 'image') {
+    var img = node.image;
+    return '<image href="' + escapeXML(img.href) + '" x="' + img.x + '" y="' + img.y
+      + '" width="' + img.width + '" height="' + img.height + '"' + transformAttr + '/>';
+  }
+
+  if (node.type === 'unknown') {
+    // Сохраняем нераспознанные элементы как есть — лучше показать "как было",
+    // чем молча выкинуть содержимое файла.
+    return node.rawOuterHTML || '';
+  }
+
+  return '';
+}
+
+// Полный документ → готовая строка <svg>...</svg>
+function renderDocumentToSVG(doc) {
+  var vb = doc.canvas.viewBox;
+  var viewBoxAttr = vb.minX + ' ' + vb.minY + ' ' + vb.width + ' ' + vb.height;
+  var body = doc.layers.map(renderNode).join('');
+  return '<svg width="' + doc.canvas.width + '" height="' + doc.canvas.height + '" '
+    + 'viewBox="' + viewBoxAttr + '" fill="none" xmlns="http://www.w3.org/2000/svg">'
+    + body + '</svg>';
+}
+
+
+// ── состояние редактора логотипа ────────────────────────────────────────────
+var logoDoc = null;        // LogoDocument — текущий импортированный/редактируемый документ
+var logoSelectedId = null; // id выбранного узла, для контролов справа и drag на холсте
+var logoBgColor = '#FFFFFF';
+var logoRingColor = '#111111';
+var logoRingWidth = 2;
+var logoGlobalScale = 100; // % — масштаб всего документа целиком на холсте
+
+function setupLogoEvents() {
+  var fi = document.getElementById('logo-fi');
+  var dz = document.getElementById('logo-dz');
+  if (!fi || !dz) return;
+  fi.addEventListener('change', function (e) {
+    if (e.target.files && e.target.files[0]) loadLogoFile(e.target.files[0]);
+  });
+  dz.addEventListener('dragover', function (e) { e.preventDefault(); dz.classList.add('drag'); });
+  dz.addEventListener('dragleave', function () { dz.classList.remove('drag'); });
+  dz.addEventListener('drop', function (e) {
+    e.preventDefault(); dz.classList.remove('drag');
+    if (e.dataTransfer.files[0]) loadLogoFile(e.dataTransfer.files[0]);
+  });
+}
+
+function loadLogoFile(file) {
+  log('loadLogoFile:', file.name);
+  document.getElementById('logo-fname').textContent = file.name;
+  var reader = new FileReader();
+  reader.onerror = function () { logErr('FileReader error (logo)'); };
+  reader.onload = function (e) {
+    try {
+      logoDoc = parseSVGToDocument(e.target.result);
+      log('Импортирован документ: ' + logoDoc.layers.length + ' верхнеуровневых слоёв, холст '
+        + logoDoc.canvas.width + 'x' + logoDoc.canvas.height);
+      logSummarizeLayers(logoDoc.layers, 0);
+      logoSelectedId = null;
+      document.getElementById('logo-upload-zone').style.display = 'none';
+      document.getElementById('logo-editor').style.display = 'block';
+      renderLogoCanvas();
+      renderLogoLayersPanel();
+      initLogoCanvasDrag();
+    } catch (ex) {
+      logErr('parseSVGToDocument: ' + ex.message);
+      alert('Не удалось прочитать SVG-файл: ' + ex.message);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function logSummarizeLayers(nodes, depth) {
+  nodes.forEach(function (n) {
+    var indent = new Array(depth + 1).join('  ');
+    log(indent + '· ' + n.type + ' <' + n.tag + '> fill=' + (n.style && n.style.fill || '—'));
+    if (n.children) logSummarizeLayers(n.children, depth + 1);
+  });
+}
+
+// ── рендер холста ────────────────────────────────────────────────────────────
+function renderLogoCanvas() {
+  if (!logoDoc) return;
+  var group = document.getElementById('logo-mark-render');
+
+  // Документ нормализуется в 100-юнитный референс-бокс по центру (0,0),
+  // чтобы он одинаково ложился на холст редактора независимо от исходных
+  // размеров файла (55x55, 297x297 — что угодно).
+  var bbox = computeDocBBox(logoDoc.layers);
+  var w = bbox.maxX - bbox.minX, h = bbox.maxY - bbox.minY;
+  var cx = (bbox.minX + bbox.maxX) / 2, cy = (bbox.minY + bbox.maxY) / 2;
+  var norm = 100 / Math.max(w || 1, h || 1);
+
+  var bodyHTML = logoDoc.layers.map(renderNode).join('');
+  var scalePct = logoGlobalScale / 100;
+
+  // Адаптивный отступ при вписывании: если логотип сам по себе уже занимает
+  // почти весь свой исходный холст (своя круглая/квадратная подложка на весь
+  // канвас, как у boss.svg) — вписываем край-в-край, без лишнего отступа.
+  // Если логотип компактный (просто текст/значок без собственного фона) —
+  // оставляем ~30% воздуха, чтобы он не касался нашего кольца.
+  var srcCanvasArea = logoDoc.canvas.width * logoDoc.canvas.height;
+  var docBboxArea = w * h;
+  var isFullBleedLogo = (docBboxArea / srcCanvasArea) > 0.7;
+  var fitMargin = isFullBleedLogo ? 1.0 : 0.7;
+  var fitScale = (220 * fitMargin / 100) * scalePct;
+
+  group.setAttribute('transform',
+    'translate(110,110) scale(' + fitScale + ') translate(' + (-cx * norm) + ',' + (-cy * norm) + ') scale(' + norm + ')');
+  group.innerHTML = bodyHTML;
+
+  // Каждому отрендеренному элементу верхнего уровня проставляем data-node-id,
+  // чтобы можно было находить элемент на холсте по id узла (для drag/выделения).
+  // renderNode не знает о DOM, поэтому проставляем порядковым сопоставлением.
+  var rendered = Array.prototype.slice.call(group.children);
+  annotateNodeIds(rendered, logoDoc.layers);
+
+  highlightSelectedNode();
+}
+
+function annotateNodeIds(domNodes, modelNodes) {
+  var domIdx = 0;
+  modelNodes.forEach(function (m) {
+    if (m.visible === false) return;
+    var el = domNodes[domIdx];
+    if (!el) return;
+    el.setAttribute('data-node-id', m.id);
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', function (evt) {
+      evt.stopPropagation();
+      selectLogoNode(m.id);
+    });
+    domIdx++;
+  });
+}
+
+function computeDocBBox(nodes) {
+  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  function walk(list) {
+    list.forEach(function (n) {
+      if (n.visible === false) return;
+      if (n.bbox) {
+        // bbox узла — в его ЛОКАЛЬНОЙ системе координат; для верхнеуровневой
+        // оценки общего охвата это достаточно точное приближение (трансформации
+        // верхнего уровня в этих файлах почти всегда identity или простые).
+        minX = Math.min(minX, n.bbox.x);
+        minY = Math.min(minY, n.bbox.y);
+        maxX = Math.max(maxX, n.bbox.x + n.bbox.width);
+        maxY = Math.max(maxY, n.bbox.y + n.bbox.height);
+      }
+      if (n.children) walk(n.children);
+    });
+  }
+  walk(nodes);
+  if (!isFinite(minX)) { minX = 0; minY = 0; maxX = 100; maxY = 100; }
+  return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
+}
+
+// ── фон + граница (не часть импортированного документа, это рамка редактора) ─
+function updateLogoBgRing() {
+  logoBgColor = document.getElementById('logo-bg-color').value;
+  logoRingColor = document.getElementById('logo-ring-color').value;
+  logoRingWidth = parseFloat(document.getElementById('logo-ring-width').value) || 0;
+  document.getElementById('logo-bg-color-text').value = logoBgColor;
+  document.getElementById('logo-ring-color-text').value = logoRingColor;
+  document.getElementById('logo-ring-width-val').textContent = logoRingWidth;
+
+  document.getElementById('logo-bg-circle').setAttribute('fill', logoBgColor);
+  var ring = document.getElementById('logo-ring-circle');
+  var outerRadius = 110;
+  ring.setAttribute('r', outerRadius - logoRingWidth / 2);
+  ring.setAttribute('stroke', logoRingColor);
+  ring.setAttribute('stroke-width', logoRingWidth);
+}
+
+function syncColorFromText(textInput, colorInputId) {
+  var v = textInput.value.trim();
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v)) {
+    document.getElementById(colorInputId).value = v;
+    updateLogoBgRing();
+  }
+}
+
+function updateLogoGlobalTransform() {
+  logoGlobalScale = parseFloat(document.getElementById('logo-scale').value);
+  document.getElementById('logo-scale-val').textContent = logoGlobalScale + '%';
+  renderLogoCanvas();
+}
+
+// ── панель слоёв ─────────────────────────────────────────────────────────────
+var LAYER_TYPE_LABEL = {
+  group: 'Группа', path: 'Path', shape: 'Фигура', text: 'Текст', image: 'Изображение', unknown: '?'
+};
+var LAYER_TYPE_ICON = {
+  group: '📁', path: '✏️', shape: '◆', text: '🔤', image: '🖼️', unknown: '❓'
+};
+
+function renderLogoLayersPanel() {
+  var panel = document.getElementById('logo-layers-panel');
+  if (!panel || !logoDoc) return;
+  panel.innerHTML = renderLayerListHTML(logoDoc.layers, 0, true);
+}
+
+// Рисуем список В ОБРАТНОМ порядке (последний в массиве = верхний слой файла
+// = верх списка), рекурсивно для групп, с отступом по глубине.
+function renderLayerListHTML(nodes, depth, reverseTop) {
+  var q = String.fromCharCode(39); // одинарная кавычка — безопасный способ вставить её в строку
+  var ordered = reverseTop ? nodes.slice().reverse() : nodes;
+  var html = '';
+  ordered.forEach(function (n) {
+    var swatch = (n.style && n.style.fill) ? n.style.fill : 'transparent';
+    var label = LAYER_TYPE_LABEL[n.type] || n.tag;
+    var icon = LAYER_TYPE_ICON[n.type] || '·';
+    var selectedCls = (n.id === logoSelectedId) ? ' selected' : '';
+    html += '<div class="logo-layer-row' + selectedCls + '" style="padding-left:' + (8 + depth * 16) + 'px" onclick="selectLogoNode(' + q + n.id + q + ')">'
+      + '<input type="checkbox" ' + (n.visible !== false ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="toggleLogoLayerVisible(' + q + n.id + q + ', this.checked)">'
+      + '<span class="logo-layer-swatch" style="background:' + swatch + '"></span>'
+      + '<span class="logo-layer-label">' + icon + ' ' + label + (n.style && n.style.fill ? ' · ' + n.style.fill : '') + '</span>'
+      + '<button class="logo-layer-del" onclick="event.stopPropagation(); deleteLogoNode(' + q + n.id + q + ')" title="Удалить">✕</button>'
+      + '</div>';
+    if (n.children && n.children.length) {
+      html += renderLayerListHTML(n.children, depth + 1, true);
+    }
+  });
+  return html;
+}
+
+function findLogoNode(id, nodes) {
+  nodes = nodes || logoDoc.layers;
+  for (var i = 0; i < nodes.length; i++) {
+    if (nodes[i].id === id) return nodes[i];
+    if (nodes[i].children) {
+      var found = findLogoNode(id, nodes[i].children);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function findLogoNodeParentArray(id, nodes) {
+  nodes = nodes || logoDoc.layers;
+  for (var i = 0; i < nodes.length; i++) {
+    if (nodes[i].id === id) return nodes;
+    if (nodes[i].children) {
+      var found = findLogoNodeParentArray(id, nodes[i].children);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function toggleLogoLayerVisible(id, visible) {
+  var node = findLogoNode(id);
+  if (!node) return;
+  node.visible = visible;
+  log('Слой [' + node.type + ' ' + node.tag + '] -> ' + (visible ? 'видим' : 'скрыт'));
+  renderLogoCanvas();
+}
+
+function deleteLogoNode(id) {
+  var arr = findLogoNodeParentArray(id);
+  if (!arr) return;
+  var idx = arr.findIndex(function (n) { return n.id === id; });
+  if (idx === -1) return;
+  arr.splice(idx, 1);
+  if (logoSelectedId === id) logoSelectedId = null;
+  log('Слой удалён: ' + id);
+  renderLogoCanvas();
+  renderLogoLayersPanel();
+  renderLogoNodeControls();
+}
+
+function selectLogoNode(id) {
+  logoSelectedId = id;
+  renderLogoLayersPanel();
+  highlightSelectedNode();
+  renderLogoNodeControls();
+}
+
+function highlightSelectedNode() {
+  // Подсветка выбранного объекта показывается только в панели слоёв
+  // (класс .selected на строке) — на самом холсте никакой рамки/контура
+  // не рисуем, чтобы превью оставалось бесшовным и точно отражало
+  // финальный результат без посторонних артефактов.
+}
+
+// ── контролы выбранного объекта (правая панель) ──────────────────────────────
+function renderLogoNodeControls() {
+  var q = String.fromCharCode(39);
+  var wrap = document.getElementById('logo-selected-node-controls');
+  var body = document.getElementById('logo-node-controls-body');
+  var node = logoSelectedId ? findLogoNode(logoSelectedId) : null;
+  if (!node) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+
+  var html = '';
+
+  // Цвет — для любого узла с заливкой (path/shape/text/group не имеет своей)
+  if (node.type !== 'group' && node.type !== 'image') {
+    var fillVal = (node.style && node.style.fill) || '#000000';
+    html += '<div class="logo-control-group">'
+      + '<label class="logo-control-label">Цвет</label>'
+      + '<div class="logo-color-row">'
+      + '<input type="color" value="' + fillVal + '" onchange="updateSelectedNodeFill(this.value)">'
+      + '<input type="text" value="' + fillVal + '" onchange="updateSelectedNodeFill(this.value)">'
+      + '</div></div>';
+  }
+
+  // Позиция / поворот / масштаб — общие для всех типов через transform
+  var t = node.transform || { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 };
+  html += '<div class="logo-control-group">'
+    + '<label class="logo-control-label">Позиция X: ' + Math.round(t.x) + '</label>'
+    + '<input type="range" min="-200" max="200" value="' + t.x + '" oninput="updateSelectedNodeTransform(' + q + 'x' + q + ', this.value)" style="width:100%;">'
+    + '</div>'
+    + '<div class="logo-control-group">'
+    + '<label class="logo-control-label">Позиция Y: ' + Math.round(t.y) + '</label>'
+    + '<input type="range" min="-200" max="200" value="' + t.y + '" oninput="updateSelectedNodeTransform(' + q + 'y' + q + ', this.value)" style="width:100%;">'
+    + '</div>'
+    + '<div class="logo-control-group">'
+    + '<label class="logo-control-label">Масштаб: ' + Math.round(t.scaleX * 100) + '%</label>'
+    + '<input type="range" min="10" max="400" value="' + (t.scaleX * 100) + '" oninput="updateSelectedNodeScale(this.value)" style="width:100%;">'
+    + '</div>'
+    + '<div class="logo-control-group">'
+    + '<label class="logo-control-label">Поворот: ' + Math.round(t.rotation) + '°</label>'
+    + '<input type="range" min="-180" max="180" value="' + t.rotation + '" oninput="updateSelectedNodeTransform(' + q + 'rotation' + q + ', this.value)" style="width:100%;">'
+    + '</div>';
+
+  // Текстовые свойства — только для type:'text'
+  if (node.type === 'text') {
+    var tx = node.text;
+    html += '<div class="logo-control-group">'
+      + '<label class="logo-control-label">Текст</label>'
+      + '<input type="text" class="search-box" value="' + tx.content.replace(/"/g, '&quot;') + '" onchange="updateSelectedTextProp(' + q + 'content' + q + ', this.value)">'
+      + '</div>'
+      + '<div class="logo-control-group">'
+      + '<label class="logo-control-label">Размер шрифта: ' + tx.fontSize + 'px</label>'
+      + '<input type="range" min="6" max="120" value="' + tx.fontSize + '" oninput="updateSelectedTextProp(' + q + 'fontSize' + q + ', this.value)" style="width:100%;">'
+      + '</div>'
+      + '<div class="logo-control-group">'
+      + '<label class="logo-control-label">Межбуквенный интервал: ' + tx.letterSpacing + 'px</label>'
+      + '<input type="range" min="-5" max="30" value="' + tx.letterSpacing + '" oninput="updateSelectedTextProp(' + q + 'letterSpacing' + q + ', this.value)" style="width:100%;">'
+      + '</div>'
+      + '<div class="logo-control-group">'
+      + '<label class="logo-control-label">Жирность: ' + tx.fontWeight + '</label>'
+      + '<input type="range" min="100" max="900" step="100" value="' + tx.fontWeight + '" oninput="updateSelectedTextProp(' + q + 'fontWeight' + q + ', this.value)" style="width:100%;">'
+      + '</div>';
+  }
+
+  body.innerHTML = html;
+}
+
+function updateSelectedNodeFill(value) {
+  var node = findLogoNode(logoSelectedId);
+  if (!node) return;
+  node.style.fill = value;
+  renderLogoCanvas();
+  renderLogoLayersPanel();
+}
+
+function updateSelectedNodeTransform(prop, value) {
+  var node = findLogoNode(logoSelectedId);
+  if (!node) return;
+  node.transform[prop] = parseFloat(value);
+  renderLogoCanvas();
+  renderLogoNodeControls();
+}
+
+function updateSelectedNodeScale(value) {
+  var node = findLogoNode(logoSelectedId);
+  if (!node) return;
+  var s = parseFloat(value) / 100;
+  node.transform.scaleX = s;
+  node.transform.scaleY = s;
+  renderLogoCanvas();
+  renderLogoNodeControls();
+}
+
+function updateSelectedTextProp(prop, value) {
+  var node = findLogoNode(logoSelectedId);
+  if (!node || node.type !== 'text') return;
+  node.text[prop] = (prop === 'fontSize' || prop === 'letterSpacing' || prop === 'fontWeight')
+    ? parseFloat(value) : value;
+  renderLogoCanvas();
+  renderLogoNodeControls();
+}
+
+// ── drag перемещение выбранного объекта прямо на холсте ─────────────────────
+function initLogoCanvasDrag() {
+  var area = document.getElementById('logo-canvas-area');
+  var dragging = false, startX, startY, startTx, startTy;
+  var viewBoxScale = 220 / 260;
+
+  function pointerDown(e) {
+    if (!logoSelectedId) return;
+    var node = findLogoNode(logoSelectedId);
+    if (!node) return;
+    dragging = true;
+    var p = e.touches ? e.touches[0] : e;
+    startX = p.clientX; startY = p.clientY;
+    startTx = node.transform.x; startTy = node.transform.y;
+    e.preventDefault();
+  }
+  function pointerMove(e) {
+    if (!dragging) return;
+    var node = findLogoNode(logoSelectedId);
+    if (!node) return;
+    var p = e.touches ? e.touches[0] : e;
+    var dx = (p.clientX - startX) * viewBoxScale;
+    var dy = (p.clientY - startY) * viewBoxScale;
+    node.transform.x = startTx + dx;
+    node.transform.y = startTy + dy;
+    renderLogoCanvas();
+    renderLogoNodeControls();
+  }
+  function pointerUp() { dragging = false; }
+
+  area.addEventListener('mousedown', pointerDown);
+  window.addEventListener('mousemove', pointerMove);
+  window.addEventListener('mouseup', pointerUp);
+  area.addEventListener('touchstart', pointerDown, { passive: false });
+  window.addEventListener('touchmove', pointerMove, { passive: false });
+  window.addEventListener('touchend', pointerUp);
+}
+
+// ── сброс / экспорт ──────────────────────────────────────────────────────────
+function clearLogoEditor() {
+  logoDoc = null;
+  logoSelectedId = null;
+  logoBgColor = '#FFFFFF'; logoRingColor = '#111111'; logoRingWidth = 2; logoGlobalScale = 100;
+  document.getElementById('logo-mark-render').innerHTML = '';
+  document.getElementById('logo-bg-color').value = '#FFFFFF';
+  document.getElementById('logo-bg-color-text').value = '#FFFFFF';
+  document.getElementById('logo-ring-color').value = '#111111';
+  document.getElementById('logo-ring-color-text').value = '#111111';
+  document.getElementById('logo-ring-width').value = 2;
+  document.getElementById('logo-ring-width-val').textContent = '2';
+  document.getElementById('logo-scale').value = 100;
+  document.getElementById('logo-scale-val').textContent = '100%';
+  document.getElementById('logo-layers-panel').innerHTML = '';
+  document.getElementById('logo-selected-node-controls').style.display = 'none';
+  document.getElementById('logo-fname').textContent = '';
+  document.getElementById('logo-fi').value = '';
+  updateLogoBgRing();
+  document.getElementById('logo-upload-zone').style.display = '';
+  document.getElementById('logo-editor').style.display = 'none';
+  log('Редактор логотипа очищен');
+}
+
+function downloadLogoSVG() {
+  if (!logoDoc) return;
+  var svgEl = document.getElementById('logo-output-svg');
+  var clone = svgEl.cloneNode(true);
+  clone.setAttribute('width', '512');
+  clone.setAttribute('height', '512');
+  var xml = new XMLSerializer().serializeToString(clone);
+  xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + xml;
+  var filename = 'logo-' + Date.now() + '.svg';
+  var ok = triggerFileDownload(filename, 'image/svg+xml', xml);
+  if (!ok) {
+    var win = window.open();
+    if (win) { win.document.write(xml); win.document.title = filename; }
+    else alert('Не удалось скачать файл автоматически. Разрешите всплывающие окна.');
+  }
+}
+
+setupLogoEvents();
+
+
+document.getElementById('fi-xml').addEventListener('change', function(e) {
+  if (e.target.files && e.target.files[0]) processFile(e.target.files[0], 'xml');
+});
+var dzXml = document.getElementById('dz-xml');
+dzXml.addEventListener('dragover',  function(e) { e.preventDefault(); dzXml.classList.add('drag'); });
+dzXml.addEventListener('dragleave', function()  { dzXml.classList.remove('drag'); });
+dzXml.addEventListener('drop', function(e) {
+  e.preventDefault(); dzXml.classList.remove('drag');
+  if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0], 'xml');
+});
+
+// Excel
+document.getElementById('fi-xlsx').addEventListener('change', function(e) {
+  if (e.target.files && e.target.files[0]) processFile(e.target.files[0], 'xlsx');
+});
+var dzXlsx = document.getElementById('dz-xlsx');
+dzXlsx.addEventListener('dragover',  function(e) { e.preventDefault(); dzXlsx.classList.add('drag'); });
+dzXlsx.addEventListener('dragleave', function()  { dzXlsx.classList.remove('drag'); });
+dzXlsx.addEventListener('drop', function(e) {
+  e.preventDefault(); dzXlsx.classList.remove('drag');
+  if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0], 'xlsx');
+});
+</script>
+</body>
+</html>
