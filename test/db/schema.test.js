@@ -13,3 +13,13 @@ test('schema creates the expected tables and seeds integration_checklist', async
 
   await pool.end();
 });
+
+test('rejects an invalid partner stage at the database level', async () => {
+  const pool = await createTestPool();
+  await expect(
+    pool.query(
+      "INSERT INTO partners (name, type, stage) VALUES ('Test Co', 'api', 'not-a-real-stage')"
+    )
+  ).rejects.toThrow();
+  await pool.end();
+});

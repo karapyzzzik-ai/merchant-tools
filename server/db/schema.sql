@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS partners (
   id         SERIAL PRIMARY KEY,
   name       TEXT NOT NULL,
   type       TEXT NOT NULL CHECK (type IN ('api', 'mall')),
-  stage      TEXT NOT NULL DEFAULT 's0',
+  stage      TEXT NOT NULL DEFAULT 's0' CHECK (stage IN ('s0', 's1', 's2', 's3', 's4', 's5', 's6', 's6b', 's7', 's8')),
   checks     JSONB NOT NULL DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
