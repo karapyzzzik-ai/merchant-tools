@@ -1,0 +1,36 @@
+{
+  "name": "merchant-tools-backend-auth",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "jest",
+    "migrate": "node server/db/migrate.js",
+    "create-user": "node server/scripts/create-user.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "connect-pg-simple": "^10.0.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.6.0",
+    "express-session": "^1.19.0",
+    "helmet": "^8.3.0",
+    "pg": "^8.22.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "pg-mem": "^3.0.14",
+    "supertest": "^7.2.2"
+  }
+}
