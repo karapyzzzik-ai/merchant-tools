@@ -2543,13 +2543,15 @@ This mirrors `server/index.js` exactly, minus the `.listen()` call — Vercel's 
     }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "/api/index" }
+    { "src": "/(.*)", "dest": "/api/index.js" }
   ]
 }
 ```
 Every request (including ones that look like static files, e.g. `/`) is routed to the one serverless function, which itself calls `express.static(...)` internally for the frontend — matching how the app already behaves under `server/index.js`. The `includeFiles` config is required because `express.static()` reads `public/` from disk at request time rather than `require()`-ing it — `@vercel/node`'s default dependency tracer only follows `require`/`import`, so without this hint the static assets would be silently excluded from the deployed function bundle and every request would 404 despite the routing rule matching correctly.
 
 Uses `routes` rather than `rewrites` deliberately: this config uses the legacy `builds` array (needed for the `includeFiles` build-time config), and `routes` is that legacy pipeline's own native routing primitive — pairing `builds` with the newer `rewrites` is not confirmed to work by Vercel's docs and risks every request (including `/`, the login page) 404ing despite the config looking correct.
+
+`dest` must be `/api/index.js` (matching `src` literally, with the extension) — not `/api/index`. Under the legacy `builds` pipeline, the lambda is registered at the exact `src` path; a `dest` that doesn't match a real registered path 404s at the platform level, before the request ever reaches the function. This was confirmed against a real deployment: `dest: "/api/index"` (no extension) produced a platform-level `NOT_FOUND` on every path, while `dest: "/api/index.js"` correctly serves the app.
 
 - [ ] **Step 4: Write `server/scripts/create-restricted-role.js`**
 
