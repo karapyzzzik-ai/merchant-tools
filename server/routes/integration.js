@@ -36,6 +36,9 @@ router.put('/:type', asyncHandler(async (req, res) => {
     'UPDATE integration_checklist SET checks = $1, updated_at = now() WHERE type = $2 RETURNING checks',
     [parsed.data.checks, type]
   );
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: 'checklist row not found' });
+  }
   res.json({ checks: result.rows[0].checks });
 }));
 

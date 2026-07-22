@@ -1613,7 +1613,6 @@ function triggerFileDownload(filename, mimeType, content) {
   }
 }
 
-// load from localStorage on startup
 function exportPartners() {
   var data = JSON.stringify({ partners: partners, nextPartnerId: nextPartnerId }, null, 2);
   var filename = 'merchant-partners-' + new Date().toISOString().slice(0,10) + '.json';

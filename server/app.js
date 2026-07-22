@@ -51,7 +51,12 @@ function createApp({ pool, sessionStore, sessionSecret }) {
 
   app.use((err, req, res, next) => {
     console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    // express.json() throws a SyntaxError with .status = 400 on malformed
+    // JSON bodies; honor that instead of always reporting 500, without
+    // ever leaking err.message/stack to the client.
+    const status = err.status || err.statusCode || 500;
+    const message = status === 500 ? 'internal server error' : 'invalid request body';
+    res.status(status).json({ error: message });
   });
 
   return app;
