@@ -3,6 +3,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const helmet = require('helmet');
+const { issueCsrfCookie } = require('./middleware/csrf');
 
 function createApp({ pool, sessionStore, sessionSecret }) {
   const app = express();
@@ -36,6 +37,7 @@ function createApp({ pool, sessionStore, sessionSecret }) {
       maxAge: 8 * 60 * 60 * 1000
     }
   }));
+  app.use(issueCsrfCookie);
 
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
