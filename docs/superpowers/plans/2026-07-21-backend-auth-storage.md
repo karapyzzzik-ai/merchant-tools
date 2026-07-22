@@ -1856,7 +1856,8 @@ function savePartner() {
       partners.push(result.body);
       closeAddPartner();
       renderKanban();
-    });
+    })
+    .catch(function(e) { logErr('savePartner error: ' + e.message); });
 }
 ```
 
@@ -1887,13 +1888,18 @@ Replace with:
       if (draggingId === null) return;
       var newStage = col.getAttribute('data-stage');
       apiFetch('/api/partners/' + draggingId, { method: 'PATCH', body: JSON.stringify({ stage: newStage }) })
-        .then(function(res) { return res.json(); })
+        .then(function(res) {
+          if (!res.ok) { logErr('Failed to update partner stage: ' + draggingId); return null; }
+          return res.json();
+        })
         .then(function(updated) {
+          if (!updated) return;
           for (var i = 0; i < partners.length; i++) {
             if (partners[i].id === draggingId) { partners[i] = updated; break; }
           }
           renderKanban();
-        });
+        })
+        .catch(function(e) { logErr('drag-drop stage update error: ' + e.message); });
     });
 ```
 
@@ -1913,13 +1919,18 @@ Replace with:
 ```html
 function updateStage(id, stage) {
   apiFetch('/api/partners/' + id, { method: 'PATCH', body: JSON.stringify({ stage: stage }) })
-    .then(function(res) { return res.json(); })
+    .then(function(res) {
+      if (!res.ok) { logErr('Failed to update partner stage: ' + id); return null; }
+      return res.json();
+    })
     .then(function(updated) {
+      if (!updated) return;
       for (var i = 0; i < partners.length; i++) {
         if (partners[i].id === id) { partners[i] = updated; break; }
       }
       renderKanban();
-    });
+    })
+    .catch(function(e) { logErr('updateStage error: ' + e.message); });
 }
 ```
 
@@ -1947,13 +1958,18 @@ function toggleCardCheck(id, itemId) {
   var newChecks = Object.assign({}, p.checks);
   newChecks[itemId] = !newChecks[itemId];
   apiFetch('/api/partners/' + id, { method: 'PATCH', body: JSON.stringify({ checks: newChecks }) })
-    .then(function(res) { return res.json(); })
+    .then(function(res) {
+      if (!res.ok) { logErr('Failed to update partner checks: ' + id); return null; }
+      return res.json();
+    })
     .then(function(updated) {
+      if (!updated) return;
       for (var i = 0; i < partners.length; i++) {
         if (partners[i].id === id) { partners[i] = updated; break; }
       }
       openCard(id);
-    });
+    })
+    .catch(function(e) { logErr('toggleCardCheck error: ' + e.message); });
 }
 ```
 
@@ -1970,11 +1986,13 @@ function deletePartner(id) {
 Replace with:
 ```html
 function deletePartner(id) {
-  apiFetch('/api/partners/' + id, { method: 'DELETE' }).then(function(res) {
-    if (res.status !== 204) { logErr('Failed to delete partner ' + id); return; }
-    partners = partners.filter(function(p) { return p.id !== id; });
-    closeCard();
-  });
+  apiFetch('/api/partners/' + id, { method: 'DELETE' })
+    .then(function(res) {
+      if (res.status !== 204) { logErr('Failed to delete partner ' + id); return; }
+      partners = partners.filter(function(p) { return p.id !== id; });
+      closeCard();
+    })
+    .catch(function(e) { logErr('deletePartner error: ' + e.message); });
 }
 ```
 
