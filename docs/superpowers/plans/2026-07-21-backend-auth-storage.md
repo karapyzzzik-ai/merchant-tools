@@ -888,6 +888,8 @@ const { z } = require('zod');
 const { findUserByUsername, verifyPassword } = require('../db/users');
 const { createLoginLimiter } = require('../middleware/rateLimit');
 const { asyncHandler } = require('../middleware/asyncHandler');
+const { verifyCsrf } = require('../middleware/csrf');
+const { requireAuth } = require('../middleware/requireAuth');
 
 const loginSchema = z.object({
   username: z.string().min(1).max(100),
@@ -921,17 +923,19 @@ function createAuthRouter() {
     });
   }));
 
-  router.post('/logout', (req, res) => {
+  // POST /api/login is the one documented exception to "every mutating
+  // request requires CSRF" (there's no session yet to protect). Every
+  // other mutating auth route — just /logout here — still needs it.
+  router.post('/logout', verifyCsrf, (req, res) => {
     req.session.destroy(() => {
       res.clearCookie('connect.sid');
       res.json({ ok: true });
     });
   });
 
-  router.get('/me', (req, res) => {
-    if (!req.session || !req.session.userId) {
-      return res.status(401).json({ error: 'unauthorized' });
-    }
+  // Reuses requireAuth (Task 5) rather than re-implementing the same
+  // session check inline, so the two never drift out of sync.
+  router.get('/me', requireAuth, (req, res) => {
     res.json({ username: req.session.username });
   });
 
