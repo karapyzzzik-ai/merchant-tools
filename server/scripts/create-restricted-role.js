@@ -27,6 +27,9 @@ async function main() {
       "DO $do$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'merchant_tools_app') THEN " +
       "CREATE ROLE merchant_tools_app WITH LOGIN PASSWORD '" + password + "'; END IF; END $do$;"
     );
+    // Re-running with a new password (e.g. rotation) must actually change
+    // it — CREATE ROLE alone no-ops once the role exists.
+    await pool.query("ALTER ROLE merchant_tools_app WITH PASSWORD '" + password + "'");
     await pool.query('GRANT CONNECT ON DATABASE "' + dbName + '" TO merchant_tools_app');
     await pool.query('GRANT USAGE ON SCHEMA public TO merchant_tools_app');
     await pool.query('GRANT SELECT, INSERT, UPDATE, DELETE ON users, partners, integration_checklist, session, rate_limits TO merchant_tools_app');

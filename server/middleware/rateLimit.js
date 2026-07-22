@@ -28,7 +28,7 @@ class PostgresStore {
       'UPDATE rate_limits SET count = count + 1 WHERE key = $1 RETURNING count, reset_at',
       [key]
     );
-    return { totalHits: updated.rows[0].count, resetTime: updated.rows[0].reset_at };
+    return { totalHits: updated.rows[0].count, resetTime: new Date(updated.rows[0].reset_at) };
   }
 
   async decrement(key) {
