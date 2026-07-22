@@ -325,6 +325,23 @@
 </head>
 <body>
 
+<style>
+  .login-screen { position: fixed; inset: 0; background: var(--bg, #fff); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+  .login-form { display: flex; flex-direction: column; gap: 10px; width: 280px; }
+  .login-form h1 { font-size: 18px; margin-bottom: 8px; text-align: center; }
+  .login-form input { padding: 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; font-size: 14px; }
+  .login-error { color: #A32D2D; font-size: 13px; margin: 0; }
+</style>
+<div id="login-screen" class="login-screen" style="display:none">
+  <form id="login-form" class="login-form" onsubmit="return handleLogin(event)">
+    <h1>🛒 Merchant Tools</h1>
+    <input type="text" id="login-username" placeholder="Логин" autocomplete="username" required>
+    <input type="password" id="login-password" placeholder="Пароль" autocomplete="current-password" required>
+    <button type="submit" class="btn btn-success">Войти</button>
+    <p id="login-error" class="login-error" style="display:none"></p>
+  </form>
+</div>
+
 <!-- ── главная навигация ── -->
 <nav class="main-nav">
   <span class="main-nav-logo">🛒 Merchant Tools</span>
@@ -332,6 +349,7 @@
   <button class="main-tab" onclick="showMain('integration')">Интеграция</button>
   <button class="main-tab" onclick="showMain('partners')">Партнёры в работе</button>
   <button class="main-tab" onclick="showMain('logo')">Создание логотипа</button>
+  <button class="main-tab" onclick="handleLogout()" style="margin-left:auto">Выйти</button>
 </nav>
 
 <!-- ══ СТРАНИЦА 1: АНАЛИЗАТОР ══ -->
@@ -547,6 +565,81 @@
 <div id="dbg-panel"></div>
 
 <script>
+function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+  var method = (options.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD') {
+    headers['X-CSRF-Token'] = getCsrfCookie();
+  }
+  return fetch(url, Object.assign({}, options, { headers: headers, credentials: 'same-origin' }));
+}
+
+function getCsrfCookie() {
+  var match = document.cookie.match(/(?:^|; )csrfToken=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+function showLoginScreen() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.querySelector('.main-nav').style.display = 'none';
+  document.querySelectorAll('.page').forEach(function(p) { p.style.display = 'none'; });
+}
+
+function hideLoginScreen() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.querySelector('.main-nav').style.display = '';
+}
+
+function handleLogin(event) {
+  event.preventDefault();
+  var username = document.getElementById('login-username').value.trim();
+  var password = document.getElementById('login-password').value;
+  var errorEl = document.getElementById('login-error');
+  errorEl.style.display = 'none';
+
+  apiFetch('/api/login', { method: 'POST', body: JSON.stringify({ username: username, password: password }) })
+    .then(function(res) {
+      if (!res.ok) {
+        errorEl.textContent = res.status === 429 ? 'Слишком много попыток входа. Попробуйте позже.' : 'Неверный логин или пароль.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      hideLoginScreen();
+      initApp();
+    })
+    .catch(function() {
+      errorEl.textContent = 'Не удалось связаться с сервером.';
+      errorEl.style.display = 'block';
+    });
+
+  return false;
+}
+
+function handleLogout() {
+  apiFetch('/api/logout', { method: 'POST' }).then(function() {
+    location.reload();
+  });
+}
+
+function checkAuth() {
+  apiFetch('/api/me').then(function(res) {
+    if (res.ok) {
+      hideLoginScreen();
+      initApp();
+    } else {
+      showLoginScreen();
+    }
+  }).catch(function() {
+    showLoginScreen();
+  });
+}
+
+function initApp() {
+  loadPartners();
+}
+
+checkAuth();
 // ── логгер ───────────────────────────────────────────
 var dbg = document.getElementById('dbg-panel');
 function log() {
@@ -1540,7 +1633,6 @@ function savePartners() {
 var partners = [];
 var nextPartnerId = 1;
 var activePartnerId = null;
-loadPartners();
 
 function renderKanban() {
   var board = document.getElementById('kanban-board');
