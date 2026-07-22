@@ -801,6 +801,11 @@ function createLoginLimiter() {
     max: 5,
     standardHeaders: true,
     legacyHeaders: false,
+    // Only failed attempts count. Without this, a handful of legitimate
+    // logins from a shared office IP (this is an internal ~20-person tool,
+    // manual account provisioning, likely one NAT'd egress IP) could burn
+    // through the budget and lock out the whole office for 15 minutes.
+    skipSuccessfulRequests: true,
     message: { error: 'too many login attempts, try again later' }
   });
 }
@@ -998,7 +1003,12 @@ function createApp({ pool, sessionStore, sessionSecret }) {
 
   app.use((err, req, res, next) => {
     console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    // express.json() throws a SyntaxError with .status = 400 on malformed
+    // JSON bodies; honor that instead of always reporting 500, without
+    // ever leaking err.message/stack to the client.
+    const status = err.status || err.statusCode || 500;
+    const message = status === 500 ? 'internal server error' : 'invalid request body';
+    res.status(status).json({ error: message });
   });
 
   return app;
@@ -1286,7 +1296,12 @@ function createApp({ pool, sessionStore, sessionSecret }) {
 
   app.use((err, req, res, next) => {
     console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    // express.json() throws a SyntaxError with .status = 400 on malformed
+    // JSON bodies; honor that instead of always reporting 500, without
+    // ever leaking err.message/stack to the client.
+    const status = err.status || err.statusCode || 500;
+    const message = status === 500 ? 'internal server error' : 'invalid request body';
+    res.status(status).json({ error: message });
   });
 
   return app;
@@ -1444,6 +1459,9 @@ router.put('/:type', asyncHandler(async (req, res) => {
     'UPDATE integration_checklist SET checks = $1, updated_at = now() WHERE type = $2 RETURNING checks',
     [parsed.data.checks, type]
   );
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: 'checklist row not found' });
+  }
   res.json({ checks: result.rows[0].checks });
 }));
 
@@ -1508,7 +1526,12 @@ function createApp({ pool, sessionStore, sessionSecret }) {
 
   app.use((err, req, res, next) => {
     console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    // express.json() throws a SyntaxError with .status = 400 on malformed
+    // JSON bodies; honor that instead of always reporting 500, without
+    // ever leaking err.message/stack to the client.
+    const status = err.status || err.statusCode || 500;
+    const message = status === 500 ? 'internal server error' : 'invalid request body';
+    res.status(status).json({ error: message });
   });
 
   return app;
