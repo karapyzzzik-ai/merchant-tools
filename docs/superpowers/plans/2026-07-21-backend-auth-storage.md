@@ -2170,18 +2170,25 @@ function importPartners(input) {
       if (!Array.isArray(data.partners)) throw new Error('Неверный формат файла');
       var creates = data.partners.map(function(p) {
         return apiFetch('/api/partners', { method: 'POST', body: JSON.stringify({ name: p.name, type: p.type }) })
-          .then(function(res) { return res.json(); })
+          .then(function(res) {
+            if (!res.ok) { logErr('Failed to import partner ' + p.name + ': create failed'); return null; }
+            return res.json();
+          })
           .then(function(created) {
+            if (!created) return null;
             return apiFetch('/api/partners/' + created.id, {
               method: 'PATCH',
               body: JSON.stringify({ stage: p.stage, checks: p.checks || {} })
+            }).then(function(patchRes) {
+              if (!patchRes.ok) { logErr('Failed to set imported details for ' + p.name); }
+              return patchRes;
             });
           });
       });
       Promise.all(creates).then(function() {
         loadPartners();
         log('Импортировано партнёров: ' + data.partners.length);
-      });
+      }).catch(function(e) { logErr('Import error: ' + e.message); });
     } catch(ex) {
       logErr('Ошибка импорта: ' + ex.message);
       alert('Ошибка загрузки файла: ' + ex.message);
