@@ -1616,22 +1616,13 @@ function importPartners(input) {
 }
 
 function loadPartners() {
-  try {
-    var raw = localStorage.getItem('merchant_tools_partners');
-    if (raw) {
-      var data = JSON.parse(raw);
-      partners = data.partners || [];
-      nextPartnerId = data.nextPartnerId || 1;
-    }
-  } catch(e) { logErr('localStorage load error: ' + e.message); }
-}
-function savePartners() {
-  try {
-    localStorage.setItem('merchant_tools_partners', JSON.stringify({
-      partners: partners,
-      nextPartnerId: nextPartnerId
-    }));
-  } catch(e) { logErr('localStorage save error: ' + e.message); }
+  apiFetch('/api/partners').then(function(res) {
+    if (!res.ok) { logErr('Failed to load partners: ' + res.status); return; }
+    return res.json();
+  }).then(function(data) {
+    partners = data || [];
+    renderKanban();
+  }).catch(function(e) { logErr('loadPartners error: ' + e.message); });
 }
 
 var partners = [];
@@ -1712,14 +1703,14 @@ function initDragDrop() {
       col.classList.remove('drag-over');
       if (draggingId === null) return;
       var newStage = col.getAttribute('data-stage');
-      for (var i = 0; i < partners.length; i++) {
-        if (partners[i].id === draggingId) {
-          partners[i].stage = newStage;
-          break;
-        }
-      }
-      savePartners();
-      renderKanban();
+      apiFetch('/api/partners/' + draggingId, { method: 'PATCH', body: JSON.stringify({ stage: newStage }) })
+        .then(function(res) { return res.json(); })
+        .then(function(updated) {
+          for (var i = 0; i < partners.length; i++) {
+            if (partners[i].id === draggingId) { partners[i] = updated; break; }
+          }
+          renderKanban();
+        });
     });
   });
 }
@@ -1738,10 +1729,14 @@ function savePartner() {
   var name = document.getElementById('partner-name-input').value.trim();
   if (!name) { document.getElementById('partner-name-input').focus(); return; }
   var type = document.getElementById('partner-type-input').value;
-  partners.push({ id: nextPartnerId++, name: name, type: type, stage: 's0', checks: {} });
-  savePartners();
-  closeAddPartner();
-  renderKanban();
+  apiFetch('/api/partners', { method: 'POST', body: JSON.stringify({ name: name, type: type }) })
+    .then(function(res) { return res.json().then(function(body) { return { ok: res.ok, body: body }; }); })
+    .then(function(result) {
+      if (!result.ok) { logErr('Failed to create partner: ' + JSON.stringify(result.body)); return; }
+      partners.push(result.body);
+      closeAddPartner();
+      renderKanban();
+    });
 }
 
 function openCard(id) {
@@ -1802,28 +1797,38 @@ function closeCard() {
 }
 
 function updateStage(id, stage) {
-  for (var i = 0; i < partners.length; i++) {
-    if (partners[i].id === id) { partners[i].stage = stage; break; }
-  }
-  savePartners();
-  renderKanban();
+  apiFetch('/api/partners/' + id, { method: 'PATCH', body: JSON.stringify({ stage: stage }) })
+    .then(function(res) { return res.json(); })
+    .then(function(updated) {
+      for (var i = 0; i < partners.length; i++) {
+        if (partners[i].id === id) { partners[i] = updated; break; }
+      }
+      renderKanban();
+    });
 }
 
 function toggleCardCheck(id, itemId) {
-  for (var i = 0; i < partners.length; i++) {
-    if (partners[i].id === id) {
-      partners[i].checks[itemId] = !partners[i].checks[itemId];
-      break;
-    }
-  }
-  savePartners();
-  openCard(id);
+  var p = null;
+  for (var i = 0; i < partners.length; i++) { if (partners[i].id === id) { p = partners[i]; break; } }
+  if (!p) return;
+  var newChecks = Object.assign({}, p.checks);
+  newChecks[itemId] = !newChecks[itemId];
+  apiFetch('/api/partners/' + id, { method: 'PATCH', body: JSON.stringify({ checks: newChecks }) })
+    .then(function(res) { return res.json(); })
+    .then(function(updated) {
+      for (var i = 0; i < partners.length; i++) {
+        if (partners[i].id === id) { partners[i] = updated; break; }
+      }
+      openCard(id);
+    });
 }
 
 function deletePartner(id) {
-  partners = partners.filter(function(p) { return p.id !== id; });
-  savePartners();
-  closeCard();
+  apiFetch('/api/partners/' + id, { method: 'DELETE' }).then(function(res) {
+    if (res.status !== 204) { logErr('Failed to delete partner ' + id); return; }
+    partners = partners.filter(function(p) { return p.id !== id; });
+    closeCard();
+  });
 }
 
 // Close modals on backdrop click
