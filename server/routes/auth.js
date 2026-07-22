@@ -11,9 +11,9 @@ const loginSchema = z.object({
   password: z.string().min(1).max(200)
 }).strict();
 
-function createAuthRouter() {
+function createAuthRouter(pool) {
   const router = express.Router();
-  const loginLimiter = createLoginLimiter();
+  const loginLimiter = createLoginLimiter(pool);
 
   router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
     const parsed = loginSchema.safeParse(req.body);

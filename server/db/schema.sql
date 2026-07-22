@@ -34,3 +34,9 @@ CREATE TABLE IF NOT EXISTS session (
 );
 
 CREATE INDEX IF NOT EXISTS idx_session_expire ON session (expire);
+
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key      TEXT PRIMARY KEY,
+  count    INTEGER NOT NULL DEFAULT 0,
+  reset_at TIMESTAMPTZ NOT NULL
+);

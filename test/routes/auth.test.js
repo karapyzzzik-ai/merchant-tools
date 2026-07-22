@@ -21,6 +21,10 @@ beforeEach(() => {
   app = createTestApp(pool);
 });
 
+afterEach(async () => {
+  await pool.query('DELETE FROM rate_limits');
+});
+
 afterAll(async () => {
   await pool.end();
 });

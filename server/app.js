@@ -43,7 +43,7 @@ function createApp({ pool, sessionStore, sessionSecret }) {
   }));
   app.use(issueCsrfCookie);
 
-  app.use('/api', createAuthRouter());
+  app.use('/api', createAuthRouter(pool));
   app.use('/api/partners', requireAuth, verifyCsrf, partnersRoutes);
   app.use('/api/integration', requireAuth, verifyCsrf, integrationRoutes);
 
