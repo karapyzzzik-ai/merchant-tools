@@ -2378,7 +2378,7 @@ class PostgresStore {
       'UPDATE rate_limits SET count = count + 1 WHERE key = $1 RETURNING count, reset_at',
       [key]
     );
-    return { totalHits: updated.rows[0].count, resetTime: updated.rows[0].reset_at };
+    return { totalHits: updated.rows[0].count, resetTime: new Date(updated.rows[0].reset_at) };
   }
 
   async decrement(key) {
@@ -2542,12 +2542,14 @@ This mirrors `server/index.js` exactly, minus the `.listen()` call — Vercel's 
       "config": { "includeFiles": "public/**" }
     }
   ],
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
+  "routes": [
+    { "src": "/(.*)", "dest": "/api/index" }
   ]
 }
 ```
-Every request (including ones that look like static files, e.g. `/`) is routed to the one serverless function, which itself calls `express.static(...)` internally for the frontend — matching how the app already behaves under `server/index.js`. The `includeFiles` config is required because `express.static()` reads `public/` from disk at request time rather than `require()`-ing it — `@vercel/node`'s default dependency tracer only follows `require`/`import`, so without this hint the static assets would be silently excluded from the deployed function bundle and every request would 404 despite the rewrite routing correctly.
+Every request (including ones that look like static files, e.g. `/`) is routed to the one serverless function, which itself calls `express.static(...)` internally for the frontend — matching how the app already behaves under `server/index.js`. The `includeFiles` config is required because `express.static()` reads `public/` from disk at request time rather than `require()`-ing it — `@vercel/node`'s default dependency tracer only follows `require`/`import`, so without this hint the static assets would be silently excluded from the deployed function bundle and every request would 404 despite the routing rule matching correctly.
+
+Uses `routes` rather than `rewrites` deliberately: this config uses the legacy `builds` array (needed for the `includeFiles` build-time config), and `routes` is that legacy pipeline's own native routing primitive — pairing `builds` with the newer `rewrites` is not confirmed to work by Vercel's docs and risks every request (including `/`, the login page) 404ing despite the config looking correct.
 
 - [ ] **Step 4: Write `server/scripts/create-restricted-role.js`**
 
@@ -2581,6 +2583,9 @@ async function main() {
       "DO $do$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'merchant_tools_app') THEN " +
       "CREATE ROLE merchant_tools_app WITH LOGIN PASSWORD '" + password + "'; END IF; END $do$;"
     );
+    // Re-running with a new password (e.g. rotation) must actually change
+    // it — CREATE ROLE alone no-ops once the role exists.
+    await pool.query("ALTER ROLE merchant_tools_app WITH PASSWORD '" + password + "'");
     await pool.query('GRANT CONNECT ON DATABASE "' + dbName + '" TO merchant_tools_app');
     await pool.query('GRANT USAGE ON SCHEMA public TO merchant_tools_app');
     await pool.query('GRANT SELECT, INSERT, UPDATE, DELETE ON users, partners, integration_checklist, session, rate_limits TO merchant_tools_app');
