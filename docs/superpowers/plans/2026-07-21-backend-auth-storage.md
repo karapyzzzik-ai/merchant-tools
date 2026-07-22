@@ -1636,8 +1636,13 @@ Replace with:
   .login-form h1 { font-size: 18px; margin-bottom: 8px; text-align: center; }
   .login-form input { padding: 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; font-size: 14px; }
   .login-error { color: #A32D2D; font-size: 13px; margin: 0; }
+  /* Hidden until JS confirms a session (body.authenticated) — prevents a
+     flash of the app's nav/pages before the async /api/me check resolves.
+     The login screen itself has no such gate: it's visible from first
+     paint via its own CSS above, with no inline display:none. */
+  body:not(.authenticated) .main-nav, body:not(.authenticated) .page { display: none !important; }
 </style>
-<div id="login-screen" class="login-screen" style="display:none">
+<div id="login-screen" class="login-screen">
   <form id="login-form" class="login-form" onsubmit="return handleLogin(event)">
     <h1>🛒 Merchant Tools</h1>
     <input type="text" id="login-username" placeholder="Логин" autocomplete="username" required>
@@ -1690,14 +1695,13 @@ function getCsrfCookie() {
 }
 
 function showLoginScreen() {
+  document.body.classList.remove('authenticated');
   document.getElementById('login-screen').style.display = 'flex';
-  document.querySelector('.main-nav').style.display = 'none';
-  document.querySelectorAll('.page').forEach(function(p) { p.style.display = 'none'; });
 }
 
 function hideLoginScreen() {
   document.getElementById('login-screen').style.display = 'none';
-  document.querySelector('.main-nav').style.display = '';
+  document.body.classList.add('authenticated');
 }
 
 function handleLogin(event) {
