@@ -8,6 +8,16 @@ async function main() {
     process.exit(1);
   }
 
+  // CREATE ROLE ... PASSWORD doesn't accept a bind parameter, so the value
+  // is interpolated directly into the SQL text below. That's only safe
+  // because we require it to be a hex string (e.g. from
+  // crypto.randomBytes(24).toString('hex')) with no quote/SQL
+  // metacharacters possible — enforce that here rather than trusting callers.
+  if (!/^[0-9a-f]+$/i.test(password)) {
+    console.error('Password must be a hex string (e.g. from crypto.randomBytes(24).toString(\'hex\')) — refusing to interpolate an arbitrary value into SQL.');
+    process.exit(1);
+  }
+
   const connectionString = process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL;
   const pool = createPool(connectionString);
   const dbName = new URL(connectionString).pathname.replace(/^\//, '');
