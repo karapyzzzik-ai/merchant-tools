@@ -799,12 +799,34 @@ var CHECKLISTS = {
 };
 
 var checkState = {};
+var checklistLoaded = { api: false, mall: false };
+
+function ensureChecklistLoaded(type, callback) {
+  if (checklistLoaded[type]) { callback(); return; }
+  apiFetch('/api/integration/' + type).then(function(res) { return res.json(); }).then(function(data) {
+    Object.assign(checkState, data.checks || {});
+    checklistLoaded[type] = true;
+    callback();
+  }).catch(function(e) { logErr('Failed to load integration checklist: ' + e.message); });
+}
+
+function saveChecklist(type) {
+  var prefix = type + '_';
+  var subset = {};
+  Object.keys(checkState).forEach(function(key) {
+    if (key.indexOf(prefix) === 0) subset[key] = checkState[key];
+  });
+  apiFetch('/api/integration/' + type, { method: 'PUT', body: JSON.stringify({ checks: subset }) })
+    .catch(function(e) { logErr('Failed to save integration checklist: ' + e.message); });
+}
 
 function startOnboarding(type) {
   var container = document.getElementById('checklist-' + type);
   if (container.style.display === 'block') { container.style.display = 'none'; return; }
-  renderChecklist(type);
-  container.style.display = 'block';
+  ensureChecklistLoaded(type, function() {
+    renderChecklist(type);
+    container.style.display = 'block';
+  });
 }
 
 function renderChecklist(type) {
@@ -850,6 +872,7 @@ function renderChecklist(type) {
 function toggleCheck(type, id) {
   checkState[id] = !checkState[id];
   renderChecklist(type);
+  saveChecklist(type);
 }
 
 function completeOnboarding(type) {
@@ -874,6 +897,7 @@ function completeOnboarding(type) {
       delete checkState[sections[si].items[ii].id];
   var container = document.getElementById('checklist-' + type);
   container.style.display = 'none';
+  saveChecklist(type);
   log('Onboarding ' + type + ' completed and reset');
 }
 
