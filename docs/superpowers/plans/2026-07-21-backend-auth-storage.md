@@ -16,7 +16,7 @@
 - No roles: every authenticated user has identical permissions.
 - CSRF: double-submit cookie, required on every mutating request (`POST`/`PATCH`/`PUT`/`DELETE`) except `POST /api/login`.
 - Rate limiting: max 5 login attempts / 15 minutes per IP on `POST /api/login`.
-- Security headers via `helmet`. HTTPS enforced in production (`NODE_ENV=production`).
+- Security headers via `helmet`, with `contentSecurityPolicy: false` — the existing frontend's inline scripts/handlers and CDN script are incompatible with a real CSP; Helmet's other headers (HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy) remain active. HTTPS enforced in production (`NODE_ENV=production`).
 - The running app must connect to Postgres as a restricted role with no `CREATE` privilege (DML only on the 4 existing tables); schema migrations run separately under a privileged connection (`MIGRATION_DATABASE_URL`). See Task 14.
 - Partner `type` enum: exactly `api`, `mall`.
 - Partner `stage` enum: exactly `s0, s1, s2, s3, s4, s5, s6, s6b, s7, s8` (matches the existing frontend `STAGES` array — order and ids must not change).
@@ -421,7 +421,18 @@ function createApp({ pool, sessionStore, sessionSecret }) {
   app.set('trust proxy', 1);
   app.locals.pool = pool;
 
-  app.use(helmet());
+  app.use(helmet({
+    // public/index.html relies on an inline <script> block, inline
+    // onclick="..." handlers throughout, and a third-party CDN script
+    // (xlsx.js). A CSP permissive enough not to break these would need
+    // 'unsafe-inline' on script-src and script-src-attr, which provides
+    // negligible real XSS protection over no CSP at all. Disabling CSP
+    // here (Helmet's other headers — HSTS, X-Frame-Options,
+    // X-Content-Type-Options, Referrer-Policy — still apply) is more
+    // honest than shipping a CSP that looks strict but isn't. Revisit if
+    // the frontend ever moves off inline scripts/handlers.
+    contentSecurityPolicy: false
+  }));
   app.use(express.json());
   app.use(cookieParser());
   app.use(session({
@@ -621,7 +632,18 @@ function createApp({ pool, sessionStore, sessionSecret }) {
   app.set('trust proxy', 1);
   app.locals.pool = pool;
 
-  app.use(helmet());
+  app.use(helmet({
+    // public/index.html relies on an inline <script> block, inline
+    // onclick="..." handlers throughout, and a third-party CDN script
+    // (xlsx.js). A CSP permissive enough not to break these would need
+    // 'unsafe-inline' on script-src and script-src-attr, which provides
+    // negligible real XSS protection over no CSP at all. Disabling CSP
+    // here (Helmet's other headers — HSTS, X-Frame-Options,
+    // X-Content-Type-Options, Referrer-Policy — still apply) is more
+    // honest than shipping a CSP that looks strict but isn't. Revisit if
+    // the frontend ever moves off inline scripts/handlers.
+    contentSecurityPolicy: false
+  }));
   app.use(express.json());
   app.use(cookieParser());
   app.use(session({
@@ -938,7 +960,18 @@ function createApp({ pool, sessionStore, sessionSecret }) {
   app.set('trust proxy', 1);
   app.locals.pool = pool;
 
-  app.use(helmet());
+  app.use(helmet({
+    // public/index.html relies on an inline <script> block, inline
+    // onclick="..." handlers throughout, and a third-party CDN script
+    // (xlsx.js). A CSP permissive enough not to break these would need
+    // 'unsafe-inline' on script-src and script-src-attr, which provides
+    // negligible real XSS protection over no CSP at all. Disabling CSP
+    // here (Helmet's other headers — HSTS, X-Frame-Options,
+    // X-Content-Type-Options, Referrer-Policy — still apply) is more
+    // honest than shipping a CSP that looks strict but isn't. Revisit if
+    // the frontend ever moves off inline scripts/handlers.
+    contentSecurityPolicy: false
+  }));
   app.use(express.json());
   app.use(cookieParser());
   app.use(session({
@@ -1214,7 +1247,18 @@ function createApp({ pool, sessionStore, sessionSecret }) {
   app.set('trust proxy', 1);
   app.locals.pool = pool;
 
-  app.use(helmet());
+  app.use(helmet({
+    // public/index.html relies on an inline <script> block, inline
+    // onclick="..." handlers throughout, and a third-party CDN script
+    // (xlsx.js). A CSP permissive enough not to break these would need
+    // 'unsafe-inline' on script-src and script-src-attr, which provides
+    // negligible real XSS protection over no CSP at all. Disabling CSP
+    // here (Helmet's other headers — HSTS, X-Frame-Options,
+    // X-Content-Type-Options, Referrer-Policy — still apply) is more
+    // honest than shipping a CSP that looks strict but isn't. Revisit if
+    // the frontend ever moves off inline scripts/handlers.
+    contentSecurityPolicy: false
+  }));
   app.use(express.json());
   app.use(cookieParser());
   app.use(session({
@@ -1424,7 +1468,18 @@ function createApp({ pool, sessionStore, sessionSecret }) {
   app.set('trust proxy', 1);
   app.locals.pool = pool;
 
-  app.use(helmet());
+  app.use(helmet({
+    // public/index.html relies on an inline <script> block, inline
+    // onclick="..." handlers throughout, and a third-party CDN script
+    // (xlsx.js). A CSP permissive enough not to break these would need
+    // 'unsafe-inline' on script-src and script-src-attr, which provides
+    // negligible real XSS protection over no CSP at all. Disabling CSP
+    // here (Helmet's other headers — HSTS, X-Frame-Options,
+    // X-Content-Type-Options, Referrer-Policy — still apply) is more
+    // honest than shipping a CSP that looks strict but isn't. Revisit if
+    // the frontend ever moves off inline scripts/handlers.
+    contentSecurityPolicy: false
+  }));
   app.use(express.json());
   app.use(cookieParser());
   app.use(session({
