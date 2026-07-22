@@ -4,6 +4,7 @@ const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const helmet = require('helmet');
 const { issueCsrfCookie } = require('./middleware/csrf');
+const { createAuthRouter } = require('./routes/auth');
 
 function createApp({ pool, sessionStore, sessionSecret }) {
   const app = express();
@@ -39,7 +40,14 @@ function createApp({ pool, sessionStore, sessionSecret }) {
   }));
   app.use(issueCsrfCookie);
 
+  app.use('/api', createAuthRouter());
+
   app.use(express.static(path.join(__dirname, '..', 'public')));
+
+  app.use((err, req, res, next) => {
+    console.error(err);
+    res.status(500).json({ error: 'internal server error' });
+  });
 
   return app;
 }
