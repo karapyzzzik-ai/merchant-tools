@@ -3,8 +3,10 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const helmet = require('helmet');
-const { issueCsrfCookie } = require('./middleware/csrf');
+const { issueCsrfCookie, verifyCsrf } = require('./middleware/csrf');
+const { requireAuth } = require('./middleware/requireAuth');
 const { createAuthRouter } = require('./routes/auth');
+const partnersRoutes = require('./routes/partners');
 
 function createApp({ pool, sessionStore, sessionSecret }) {
   const app = express();
@@ -41,6 +43,7 @@ function createApp({ pool, sessionStore, sessionSecret }) {
   app.use(issueCsrfCookie);
 
   app.use('/api', createAuthRouter());
+  app.use('/api/partners', requireAuth, verifyCsrf, partnersRoutes);
 
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
