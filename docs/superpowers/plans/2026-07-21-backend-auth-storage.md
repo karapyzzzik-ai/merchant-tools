@@ -2030,7 +2030,11 @@ var checklistLoaded = { api: false, mall: false };
 
 function ensureChecklistLoaded(type, callback) {
   if (checklistLoaded[type]) { callback(); return; }
-  apiFetch('/api/integration/' + type).then(function(res) { return res.json(); }).then(function(data) {
+  apiFetch('/api/integration/' + type).then(function(res) {
+    if (!res.ok) { logErr('Failed to load integration checklist: ' + type); return null; }
+    return res.json();
+  }).then(function(data) {
+    if (!data) return;
     Object.assign(checkState, data.checks || {});
     checklistLoaded[type] = true;
     callback();
