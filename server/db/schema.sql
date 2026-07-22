@@ -25,7 +25,7 @@ INSERT INTO integration_checklist (type, checks) VALUES ('api', '{}'), ('mall', 
 ON CONFLICT (type) DO NOTHING;
 
 -- Pre-created here (rather than left to connect-pg-simple's createTableIfMissing)
--- so the app's runtime DB role never needs CREATE privilege — see Task 14.
+-- so the app's runtime DB role never needs CREATE privilege — see Task 15.
 CREATE TABLE IF NOT EXISTS session (
   sid    VARCHAR NOT NULL,
   sess   JSON NOT NULL,

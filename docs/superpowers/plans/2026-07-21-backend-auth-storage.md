@@ -4,7 +4,7 @@
 
 **Goal:** Add a Node.js/Express + Postgres backend to Merchant Tools that stores the "Partners in Work" kanban and "Integration" checklist in a database instead of `localStorage`, and puts the entire application behind session-based login.
 
-**Architecture:** A single Express server serves the existing frontend as a static file from `public/index.html` and exposes a small JSON REST API under `/api`. Auth uses server-side sessions (cookie + Postgres-backed session store), not JWT. All mutating API requests are protected by a double-submit CSRF cookie; the login route is additionally rate-limited. Local development and automated tests run against an in-memory Postgres emulator (`pg-mem`) so no real database install is required on the dev machine — the deploy target (Railway) has the real managed Postgres.
+**Architecture:** A single Express server serves the existing frontend as a static file from `public/index.html` and exposes a small JSON REST API under `/api`. Auth uses server-side sessions (cookie + Postgres-backed session store), not JWT. All mutating API requests are protected by a double-submit CSRF cookie; the login route is additionally rate-limited via a Postgres-backed store (not in-memory — see Task 14). Local development and automated tests run against an in-memory Postgres emulator (`pg-mem`) so no real database install is required on the dev machine — the deploy target (Vercel) uses a real managed Postgres via a marketplace integration (Neon or Supabase).
 
 **Tech Stack:** Node.js, Express, `express-session` + `connect-pg-simple`, `pg`, `bcrypt`, `helmet`, `express-rate-limit`, `zod`, `cookie-parser`, `dotenv`. Tests: `jest`, `supertest`, `pg-mem`.
 
@@ -15,15 +15,15 @@
 - Passwords: `bcrypt`, cost factor 12. No self-registration — users are created only via `server/scripts/create-user.js`.
 - No roles: every authenticated user has identical permissions.
 - CSRF: double-submit cookie, required on every mutating request (`POST`/`PATCH`/`PUT`/`DELETE`) except `POST /api/login`.
-- Rate limiting: max 5 login attempts / 15 minutes per IP on `POST /api/login`.
+- Rate limiting: max 5 login attempts / 15 minutes per IP on `POST /api/login`, counter stored in Postgres (`rate_limits` table, Task 14) — an in-memory store would not reliably persist across Vercel serverless invocations, which may run in different containers between requests.
 - Security headers via `helmet`, with `contentSecurityPolicy: false` — the existing frontend's inline scripts/handlers and CDN script are incompatible with a real CSP; Helmet's other headers (HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy) remain active. HTTPS enforced in production (`NODE_ENV=production`).
-- The running app must connect to Postgres as a restricted role with no `CREATE` privilege (DML only on the 4 existing tables); schema migrations run separately under a privileged connection (`MIGRATION_DATABASE_URL`). See Task 14.
+- The running app must connect to Postgres as a restricted role with no `CREATE` privilege (DML only on the 5 existing tables, including `rate_limits` — see Task 14); schema migrations run separately under a privileged connection (`MIGRATION_DATABASE_URL`). See Task 15.
 - Partner `type` enum: exactly `api`, `mall`.
 - Partner `stage` enum: exactly `s0, s1, s2, s3, s4, s5, s6, s6b, s7, s8` (matches the existing frontend `STAGES` array — order and ids must not change).
 - Integration checklist storage is one shared row per `type` (`api`/`mall`) — not per-user, not per-partner.
 - The entire application requires login, including "Анализатор фида" and "Создание логотипа" (which have no backend data of their own).
-- Local dev and all automated tests run against `pg-mem` — no real Postgres install needed on this machine. Manual browser verification of the full login+data flow is only possible once Task 14 provides a real deployed Postgres, and is explicitly called out as deferred in the tasks before that.
-- Deploy target: Railway (managed Postgres add-on).
+- Local dev and all automated tests run against `pg-mem` — no real Postgres install needed on this machine. Manual browser verification of the full login+data flow is only possible once Task 15 provides a real deployed Postgres, and is explicitly called out as deferred in the tasks before that.
+- Deploy target: Vercel (serverless functions), matching the hosting already used for this user's other projects (bnpl-dev-portal, whatsapp-booking-saas). Postgres via a Vercel marketplace integration (Neon or Supabase), using each provider's pooled connection string — serverless functions can spin up many concurrent instances, so `server/db/pool.js` uses a small `max` pool size (see Task 15).
 
 ---
 
@@ -31,9 +31,11 @@
 
 ```
 merchant-tools/
+  api/
+    index.js                    — Vercel serverless entrypoint: wires real Postgres pool + connect-pg-simple, exports the app (no listen())
   server/
     app.js                     — builds the Express app (injected pool/session store, no listen())
-    index.js                   — real entrypoint: wires real Postgres pool + connect-pg-simple, calls listen()
+    index.js                   — local-dev entrypoint: same wiring as api/index.js, but calls listen() — not used by Vercel
     constants.js                — PARTNER_TYPES, STAGES enums shared by validation
     db/
       pool.js                   — createPool(connectionString)
@@ -43,10 +45,10 @@ merchant-tools/
     middleware/
       csrf.js                    — issueCsrfCookie, verifyCsrf
       requireAuth.js              — 401s requests with no session user
-      rateLimit.js                — createLoginLimiter()
+      rateLimit.js                — createLoginLimiter(pool), PostgresStore (Task 14 — Postgres-backed, not in-memory)
       asyncHandler.js             — wraps async route handlers so rejections reach the error middleware
     routes/
-      auth.js                     — createAuthRouter(): /login, /logout, /me
+      auth.js                     — createAuthRouter(pool): /login, /logout, /me
       partners.js                  — GET/POST /, PATCH/DELETE /:id
       integration.js                — GET/PUT /:type
     scripts/
@@ -63,6 +65,7 @@ merchant-tools/
     middleware/
       csrf.test.js
       requireAuth.test.js
+      rateLimit.test.js
     routes/
       auth.test.js
       partners.test.js
@@ -71,6 +74,7 @@ merchant-tools/
   package.json
   .env.example
   .gitignore
+  vercel.json                   — routes all requests to api/index.js (Task 15)
 ```
 
 ---
@@ -173,7 +177,7 @@ INSERT INTO integration_checklist (type, checks) VALUES ('api', '{}'), ('mall', 
 ON CONFLICT (type) DO NOTHING;
 
 -- Pre-created here (rather than left to connect-pg-simple's createTableIfMissing)
--- so the app's runtime DB role never needs CREATE privilege — see Task 14.
+-- so the app's runtime DB role never needs CREATE privilege — see Task 15.
 CREATE TABLE IF NOT EXISTS session (
   sid    VARCHAR NOT NULL COLLATE "default",
   sess   JSON NOT NULL,
@@ -1607,7 +1611,7 @@ main();
 ```
 DATABASE_URL=postgres://user:password@localhost:5432/merchant_tools
 # Only needed in production, where DATABASE_URL is switched to a restricted
-# role without CREATE privilege (see Task 14). Locally, migrate.js falls
+# role without CREATE privilege (see Task 15). Locally, migrate.js falls
 # back to DATABASE_URL when this is unset.
 MIGRATION_DATABASE_URL=
 SESSION_SECRET=replace-with-a-long-random-string
@@ -2237,98 +2241,487 @@ git commit -m "Make partner import create records via the API"
 
 ---
 
-### Task 14: Deploy to Railway and run the first end-to-end verification
+### Task 14: Postgres-backed login rate limit store
 
-**Files:** none (infrastructure task; may add a Railway config file if the CLI generates one — commit it if so).
+**Why this replaced the original design:** the plan originally used `express-rate-limit`'s default in-memory store, fine for a single long-running process (Railway/Render). The deploy target changed to Vercel (serverless functions) to match this user's other projects (bnpl-dev-portal, whatsapp-booking-saas) — serverless invocations may run in different containers between requests, so an in-memory counter would not reliably enforce "5 attempts / 15 minutes." This task swaps in a Postgres-backed store instead.
+
+**Files:**
+- Modify: `server/db/schema.sql` (add `rate_limits` table)
+- Modify: `server/middleware/rateLimit.js` (replace with `PostgresStore` + `createLoginLimiter(pool)`)
+- Modify: `server/routes/auth.js` (`createAuthRouter()` → `createAuthRouter(pool)`)
+- Modify: `server/app.js` (pass `pool` to `createAuthRouter`)
+- Modify: `test/routes/auth.test.js` (clear `rate_limits` between tests)
+- Test: `test/middleware/rateLimit.test.js`
 
 **Interfaces:**
-- Consumes: everything from Tasks 1–13.
-- Produces: a live URL serving the app with a real Postgres database — the first point where the full login → partners → integration flow can be manually verified in a browser.
+- Consumes: `createTestPool()` (Task 1).
+- Produces: `createLoginLimiter(pool) -> RateLimitRequestHandler`, `PostgresStore` class — both from `server/middleware/rateLimit.js`. `createAuthRouter(pool) -> express.Router` (signature change from earlier tasks — every caller must now pass `pool`).
 
-- [ ] **Step 1: Install the Railway CLI and log in**
+- [ ] **Step 1: Add the `rate_limits` table to the schema**
+
+Modify `server/db/schema.sql`. Find:
+```sql
+CREATE INDEX IF NOT EXISTS idx_session_expire ON session (expire);
+```
+Replace with:
+```sql
+CREATE INDEX IF NOT EXISTS idx_session_expire ON session (expire);
+
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key      TEXT PRIMARY KEY,
+  count    INTEGER NOT NULL DEFAULT 0,
+  reset_at TIMESTAMPTZ NOT NULL
+);
+```
+
+- [ ] **Step 2: Write the failing test**
+
+Create `test/middleware/rateLimit.test.js`:
+```js
+const { createTestPool } = require('../helpers/testDb');
+const { PostgresStore } = require('../../server/middleware/rateLimit');
+
+let pool;
+let store;
+
+beforeAll(async () => {
+  pool = await createTestPool();
+});
+
+afterAll(async () => {
+  await pool.end();
+});
+
+beforeEach(() => {
+  store = new PostgresStore(pool);
+  store.init({ windowMs: 15 * 60 * 1000 });
+});
+
+afterEach(async () => {
+  await pool.query('DELETE FROM rate_limits');
+});
+
+test('increment starts a new key at 1', async () => {
+  const result = await store.increment('1.2.3.4');
+  expect(result.totalHits).toBe(1);
+  expect(result.resetTime).toBeInstanceOf(Date);
+});
+
+test('increment counts up on repeated calls within the window', async () => {
+  await store.increment('1.2.3.4');
+  await store.increment('1.2.3.4');
+  const result = await store.increment('1.2.3.4');
+  expect(result.totalHits).toBe(3);
+});
+
+test('increment resets the count once the window has passed', async () => {
+  const expiredStore = new PostgresStore(pool);
+  expiredStore.init({ windowMs: -1 });
+  await expiredStore.increment('5.6.7.8');
+  const result = await expiredStore.increment('5.6.7.8');
+  expect(result.totalHits).toBe(1);
+});
+
+test('decrement lowers the count without going below zero', async () => {
+  await store.increment('9.9.9.9');
+  await store.increment('9.9.9.9');
+  await store.decrement('9.9.9.9');
+  const result = await store.increment('9.9.9.9');
+  expect(result.totalHits).toBe(2);
+});
+
+test('resetKey clears the counter entirely', async () => {
+  await store.increment('1.1.1.1');
+  await store.resetKey('1.1.1.1');
+  const result = await store.increment('1.1.1.1');
+  expect(result.totalHits).toBe(1);
+});
+```
+
+- [ ] **Step 3: Run the test to verify it fails**
 
 ```powershell
-npm install -g @railway/cli
-railway login
+"C:\Program Files\nodejs\node.exe" node_modules/jest/bin/jest.js test/middleware/rateLimit.test.js
 ```
-Expected: opens a browser to authenticate; terminal shows "Logged in as ...".
+Expected: FAIL — `Cannot find module '../../server/middleware/rateLimit'` no longer applies (the file exists from Task 6), but `PostgresStore` is not yet exported, so the destructure yields `undefined` and `new PostgresStore(...)` throws `TypeError: PostgresStore is not a constructor`.
 
-- [ ] **Step 2: Create the Railway project and Postgres addon**
+- [ ] **Step 4: Rewrite `server/middleware/rateLimit.js`**
+
+```js
+const rateLimit = require('express-rate-limit');
+
+class PostgresStore {
+  constructor(pool) {
+    this.pool = pool;
+    this.windowMs = 0;
+  }
+
+  init(options) {
+    this.windowMs = options.windowMs;
+  }
+
+  async increment(key) {
+    const now = new Date();
+    const existing = await this.pool.query('SELECT count, reset_at FROM rate_limits WHERE key = $1', [key]);
+
+    if (existing.rows.length === 0 || new Date(existing.rows[0].reset_at) <= now) {
+      const resetTime = new Date(now.getTime() + this.windowMs);
+      await this.pool.query(
+        `INSERT INTO rate_limits (key, count, reset_at) VALUES ($1, 1, $2)
+         ON CONFLICT (key) DO UPDATE SET count = 1, reset_at = $2`,
+        [key, resetTime]
+      );
+      return { totalHits: 1, resetTime };
+    }
+
+    const updated = await this.pool.query(
+      'UPDATE rate_limits SET count = count + 1 WHERE key = $1 RETURNING count, reset_at',
+      [key]
+    );
+    return { totalHits: updated.rows[0].count, resetTime: updated.rows[0].reset_at };
+  }
+
+  async decrement(key) {
+    await this.pool.query('UPDATE rate_limits SET count = GREATEST(count - 1, 0) WHERE key = $1', [key]);
+  }
+
+  async resetKey(key) {
+    await this.pool.query('DELETE FROM rate_limits WHERE key = $1', [key]);
+  }
+}
+
+function createLoginLimiter(pool) {
+  return rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    store: new PostgresStore(pool),
+    message: { error: 'too many login attempts, try again later' }
+  });
+}
+
+module.exports = { createLoginLimiter, PostgresStore };
+```
+Note: `express-rate-limit`'s `Store` interface has changed shape across major versions. If the installed version's `increment`/`decrement`/`resetKey` contract doesn't match what's shown above (check `node_modules/express-rate-limit/dist/index.cjs` or its type definitions if the test fails in a way that suggests a signature mismatch), adjust `PostgresStore`'s methods to match the installed version's actual `Store` interface — the table/SQL logic stays the same, only the method signatures/return shapes might need to change.
+
+- [ ] **Step 5: Run the test to verify it passes**
+
+```powershell
+"C:\Program Files\nodejs\node.exe" node_modules/jest/bin/jest.js test/middleware/rateLimit.test.js
+```
+Expected: PASS (5 tests).
+
+- [ ] **Step 6: Wire `pool` into `createAuthRouter` and `server/app.js`**
+
+Modify `server/routes/auth.js`. Find:
+```js
+function createAuthRouter() {
+  const router = express.Router();
+  const loginLimiter = createLoginLimiter();
+```
+Replace with:
+```js
+function createAuthRouter(pool) {
+  const router = express.Router();
+  const loginLimiter = createLoginLimiter(pool);
+```
+
+Modify `server/app.js`. Find:
+```js
+  app.use('/api', createAuthRouter());
+```
+Replace with:
+```js
+  app.use('/api', createAuthRouter(pool));
+```
+
+- [ ] **Step 7: Clear `rate_limits` between tests in the auth test suite**
+
+Modify `test/routes/auth.test.js`. Find:
+```js
+beforeEach(() => {
+  app = createTestApp(pool);
+});
+```
+Replace with:
+```js
+beforeEach(() => {
+  app = createTestApp(pool);
+});
+
+afterEach(async () => {
+  await pool.query('DELETE FROM rate_limits');
+});
+```
+This matters now that the store is Postgres-backed: all tests in this file share one `pool`/database, so without clearing `rate_limits` between tests, attempts would accumulate across the whole file instead of resetting per test (previously, a fresh in-memory store came for free with each `createTestApp(pool)` call — that free reset no longer happens with a DB-backed store).
+
+- [ ] **Step 8: Run the full suite**
+
+```powershell
+"C:\Program Files\nodejs\node.exe" node_modules/jest/bin/jest.js
+```
+Expected: PASS, including the existing "locks out after 5 failed attempts" test in `auth.test.js` (unaffected — it only sends failed logins, which still count fully under `skipSuccessfulRequests`).
+
+- [ ] **Step 9: Commit**
+
+```powershell
+git add server/db/schema.sql server/middleware/rateLimit.js server/routes/auth.js server/app.js test/middleware/rateLimit.test.js test/routes/auth.test.js
+git commit -m "Move login rate limit counter to Postgres (serverless-safe)"
+```
+
+---
+
+### Task 15: Vercel entrypoint and deployment config
+
+**Files:**
+- Create: `api/index.js`
+- Create: `vercel.json`
+- Create: `server/scripts/create-restricted-role.js`
+- Modify: `server/db/pool.js` (small pool size, serverless-friendly)
+- Modify: `.gitignore` (Vercel CLI artifacts and env-pull files aren't covered by the current bare `.env` line)
+
+**Interfaces:**
+- Consumes: `createApp` (Task 3), `createPool` (Task 1).
+- Produces: the actual files Vercel's build needs — Task 16 deploys them, this task only writes and reviews the code.
+
+- [ ] **Step 1: Cap the pool size for serverless**
+
+Modify `server/db/pool.js`. Find:
+```js
+function createPool(connectionString) {
+  return new Pool({ connectionString });
+}
+```
+Replace with:
+```js
+function createPool(connectionString) {
+  return new Pool({
+    connectionString,
+    // Vercel serverless functions can spin up many concurrent instances,
+    // each with its own pool — keep per-instance size small so they don't
+    // collectively exhaust the database's connection limit. Use the DB
+    // provider's pooled connection string (Neon/Supabase both offer one)
+    // for the runtime DATABASE_URL so this compounds safely.
+    max: 5
+  });
+}
+```
+
+- [ ] **Step 2: Write `api/index.js`**
+
+```js
+require('dotenv').config();
+const session = require('express-session');
+const PgSession = require('connect-pg-simple')(session);
+const { createApp } = require('../server/app');
+const { createPool } = require('../server/db/pool');
+
+const pool = createPool(process.env.DATABASE_URL);
+
+const app = createApp({
+  pool,
+  sessionStore: new PgSession({ pool }),
+  sessionSecret: process.env.SESSION_SECRET
+});
+
+module.exports = app;
+```
+This mirrors `server/index.js` exactly, minus the `.listen()` call — Vercel's Node.js runtime wraps the exported Express app itself.
+
+- [ ] **Step 3: Write `vercel.json`**
+
+```json
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/index.js", "use": "@vercel/node" }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
+  ]
+}
+```
+Every request (including ones that look like static files, e.g. `/`) is routed to the one serverless function, which itself calls `express.static(...)` internally for the frontend — matching how the app already behaves under `server/index.js`.
+
+- [ ] **Step 4: Write `server/scripts/create-restricted-role.js`**
+
+```js
+require('dotenv').config();
+const { createPool } = require('../db/pool');
+
+async function main() {
+  const password = process.argv[2];
+  if (!password) {
+    console.error('Usage: node server/scripts/create-restricted-role.js <password>');
+    process.exit(1);
+  }
+
+  const connectionString = process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL;
+  const pool = createPool(connectionString);
+  const dbName = new URL(connectionString).pathname.replace(/^\//, '');
+
+  try {
+    await pool.query(
+      "DO $do$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'merchant_tools_app') THEN " +
+      "CREATE ROLE merchant_tools_app WITH LOGIN PASSWORD '" + password + "'; END IF; END $do$;"
+    );
+    await pool.query('GRANT CONNECT ON DATABASE "' + dbName + '" TO merchant_tools_app');
+    await pool.query('GRANT USAGE ON SCHEMA public TO merchant_tools_app');
+    await pool.query('GRANT SELECT, INSERT, UPDATE, DELETE ON users, partners, integration_checklist, session, rate_limits TO merchant_tools_app');
+    await pool.query('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO merchant_tools_app');
+    console.log('Role merchant_tools_app created/verified with restricted grants on database ' + dbName);
+  } finally {
+    await pool.end();
+  }
+}
+
+main().catch((err) => {
+  console.error('Failed:', err.message);
+  process.exit(1);
+});
+```
+The password is interpolated directly into the SQL text (not parameterized) because Postgres's `CREATE ROLE ... PASSWORD` syntax doesn't accept a bind parameter there — this is safe here specifically because the password is always generated by us via `crypto.randomBytes(24).toString('hex')` (hex output only, no quote characters), never taken from untrusted input.
+
+- [ ] **Step 5: Update `.gitignore` for Vercel artifacts**
+
+The current `.gitignore` only has a bare `.env` line, which does not match `.env.vercel.local` (created by `vercel env pull` in Task 16) or `.vercel/` (the CLI's local project-link directory, created by `vercel link`/`vercel` in Task 16). Find:
+```
+.worktrees/
+node_modules/
+.env
+```
+Replace with:
+```
+.worktrees/
+node_modules/
+.env
+.env*.local
+.vercel/
+```
+
+- [ ] **Step 6: Run the full suite to confirm nothing broke**
+
+```powershell
+"C:\Program Files\nodejs\node.exe" node_modules/jest/bin/jest.js
+```
+Expected: PASS (no existing test touches `api/index.js`, `vercel.json`, or the new script — this step only confirms the `pool.js` change didn't regress anything, since `createTestPool` in `test/helpers/testDb.js` uses `pg-mem`'s own `Pool`, not `createPool`, so it isn't affected by the `max` option either way).
+
+- [ ] **Step 7: Commit**
+
+```powershell
+git add server/db/pool.js api/index.js vercel.json server/scripts/create-restricted-role.js .gitignore
+git commit -m "Add Vercel entrypoint, config, and restricted-role provisioning script"
+```
+
+---
+
+### Task 16: Deploy to Vercel and run the first end-to-end verification
+
+**This task requires you, the human operator** — it involves an interactive browser OAuth login to Vercel and (if using a marketplace Postgres integration) accepting that provider's terms of service in a browser, neither of which an agent can complete on your behalf. Everything up through Task 15 (all application code, including the files Vercel needs) is already written and committed.
+
+**Files:** none (infrastructure task; may add a Vercel-generated `.vercel/` directory locally — this is created by the CLI for project linking and should be gitignored, not committed).
+
+**Interfaces:**
+- Consumes: everything from Tasks 1–15.
+- Produces: a live URL serving the app with a real Postgres database — the first point where the full login → partners → integration flow can be manually verified in a browser.
+
+- [ ] **Step 1: Install the Vercel CLI and log in**
+
+```powershell
+npm install -g vercel
+vercel login
+```
+Expected: opens a browser to authenticate; terminal confirms the logged-in account.
+
+- [ ] **Step 2: Link the project**
 
 ```powershell
 cd C:\Users\karap\merchant-tools
-railway init
-railway add --database postgres
+vercel link
 ```
+Follow the prompts to create a new Vercel project (or link to an existing one, your choice).
 
-- [ ] **Step 3: Set environment variables**
+- [ ] **Step 3: Add a Postgres integration**
+
+Via the Vercel dashboard (Project → Storage → Create Database, or Marketplace → search "Neon" or "Supabase") or via CLI:
+```powershell
+vercel integration add neon
+```
+This will print a `verification_uri` — open it in a browser and accept the provider's terms of service, then re-run the command to finish provisioning if it doesn't complete automatically. Neon is recommended (matches the integration already used on this user's whatsapp-booking-saas project) since it provides both a pooled and an unpooled ("direct") connection string, which this app needs (pooled for runtime `DATABASE_URL`, unpooled for `MIGRATION_DATABASE_URL`'s DDL work).
+
+- [ ] **Step 4: Pull the provisioned env vars and see what the integration created**
+
+```powershell
+vercel env pull .env.vercel.local
+```
+Open `.env.vercel.local` and find the connection string(s) the integration added (names vary by provider — Neon typically adds something like `DATABASE_URL` and `DATABASE_URL_UNPOOLED`; Supabase adds `POSTGRES_URL` and similar). Note the **pooled** one and the **unpooled/direct** one.
+
+- [ ] **Step 5: Set the app's own environment variables**
 
 Generate a session secret:
 ```powershell
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
-Copy the output, then set variables on Railway (via `railway variables set KEY=value` for each, or the Railway dashboard):
+Then, via `vercel env add <NAME>` (prompts for the value and which environments — choose Production) or the dashboard, set:
 - `SESSION_SECRET` = the generated value
 - `NODE_ENV` = `production`
-- `DATABASE_URL` is set automatically by the Postgres addon — confirm it exists with `railway variables`.
+- `MIGRATION_DATABASE_URL` = the **unpooled/direct** connection string from Step 4
+- `DATABASE_URL` = the **pooled** connection string from Step 4 (this gets overwritten with a restricted role's connection string in Step 8 — set it to the pooled one for now so the app can at least connect)
 
-- [ ] **Step 4: Deploy**
+- [ ] **Step 6: Deploy**
 
 ```powershell
-railway up
+vercel --prod
 ```
-Expected: build succeeds, deployment URL is printed (also visible via `railway domain` if one isn't generated automatically — run `railway domain` to provision one). The app may log DB connection errors until Step 5 runs — that's expected, ignore for now.
+Expected: build succeeds, a production URL is printed. The app may log DB connection errors until Step 7 runs (no schema yet) — expected, ignore for now.
 
-- [ ] **Step 5: Save the privileged connection string, then run the schema migration**
+- [ ] **Step 7: Run the schema migration**
 
-Before touching anything else, copy Railway's auto-provisioned (privileged) Postgres URL into a second variable so it survives Step 6, which overwrites `DATABASE_URL` with a restricted one:
+Locally, using the unpooled connection string saved as `MIGRATION_DATABASE_URL`:
 ```powershell
-railway variables
+$env:MIGRATION_DATABASE_URL = "<paste the unpooled connection string from Step 4>"
+node server/db/migrate.js
 ```
-Copy the value shown for `DATABASE_URL`, then:
-```powershell
-railway variables set MIGRATION_DATABASE_URL="<paste the DATABASE_URL value here>"
-railway run npm run migrate
-```
-Expected: prints `Schema applied successfully.` (this creates `users`, `partners`, `integration_checklist`, and `session`).
+Expected: prints `Schema applied successfully.` (creates `users`, `partners`, `integration_checklist`, `session`, and `rate_limits`).
 
-- [ ] **Step 6: Create a restricted DB role for the running app and switch `DATABASE_URL` to it**
+- [ ] **Step 8: Create the restricted DB role and switch the deployed `DATABASE_URL` to it**
 
-This satisfies the spec requirement that the app never runs under the same privileged role used for migrations. Generate a password:
+Generate a password:
 ```powershell
 node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
 ```
-Open an interactive `psql` session against the database:
+Run the provisioning script from Task 15 (still using the unpooled `MIGRATION_DATABASE_URL` from Step 7's environment):
 ```powershell
-railway connect postgres
+node server/scripts/create-restricted-role.js "<the generated password>"
 ```
-At the `psql` prompt, run (replacing `PASTE_GENERATED_PASSWORD_HERE`):
-```sql
-CREATE ROLE merchant_tools_app WITH LOGIN PASSWORD 'PASTE_GENERATED_PASSWORD_HERE';
-GRANT CONNECT ON DATABASE railway TO merchant_tools_app;
-GRANT USAGE ON SCHEMA public TO merchant_tools_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON users, partners, integration_checklist, session TO merchant_tools_app;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO merchant_tools_app;
-\q
-```
-Note: this role deliberately has no `CREATE` privilege — it can only read/write rows in the four existing tables, never alter schema.
+Expected: prints `Role merchant_tools_app created/verified with restricted grants on database ...`.
 
-Take the host/port/database name from the `MIGRATION_DATABASE_URL` value you saved in Step 5 (format `postgres://<user>:<password>@<host>:<port>/<database>`) and build a new connection string with the new role's credentials, then set it as the app's runtime `DATABASE_URL`:
+Take the host/port/database name from the pooled connection string (Step 4) and build a new one with the restricted role's credentials, then update the deployed `DATABASE_URL`:
 ```powershell
-railway variables set DATABASE_URL="postgres://merchant_tools_app:<generated-password>@<host>:<port>/<database>"
+vercel env rm DATABASE_URL production
+vercel env add DATABASE_URL production
 ```
-Setting this triggers a redeploy automatically. Confirm the new deploy comes up without DB connection errors: `railway logs`.
+(paste `postgres://merchant_tools_app:<generated-password>@<pooled-host>:<port>/<database>` when prompted — reuse the pooled host/port/database, swap only the username/password).
 
-- [ ] **Step 7: Create the first user**
-
+Redeploy so the running function picks up the new variable:
 ```powershell
-railway run npm run create-user -- operator1 "ChangeThisPassword123"
+vercel --prod
 ```
-Expected: prints `Created user: operator1 (id 1)`. Pick a real password and share it with the team out-of-band, not via chat. (This runs fine under the restricted role from Step 6 — it only needs `INSERT`/`SELECT` on `users`, which was granted.)
 
-- [ ] **Step 8: Manual end-to-end smoke test in a browser**
+- [ ] **Step 9: Create the first user**
 
-Open the Railway-provided URL. Verify, in order:
+Using the same restricted-role connection string (it has `INSERT`/`SELECT` on `users`, which was granted):
+```powershell
+$env:DATABASE_URL = "<the restricted-role connection string from Step 8>"
+node server/scripts/create-user.js operator1 "ChangeThisPassword123"
+```
+Expected: prints `Created user: operator1 (id 1)`. Pick a real password and share it with the team out-of-band, not via chat.
+
+- [ ] **Step 10: Manual end-to-end smoke test in a browser**
+
+Open the Vercel-provided production URL. Verify, in order:
 1. The login screen appears (not the app) — confirms the whole app is gated as required.
 2. Logging in with a wrong password shows an inline error, not a broken page.
 3. Logging in with `operator1` / the real password succeeds and shows the "Анализатор фида" tab.
@@ -2337,15 +2730,11 @@ Open the Railway-provided URL. Verify, in order:
 6. Open the card, check a couple of checklist boxes, close it, reload — the checks are still there.
 7. Open "Интеграция", check a few boxes, reload — they're still checked.
 8. Click "Выйти" — the login screen reappears, and reloading the URL directly does not show the app without logging in again.
+9. Log in again and attempt 6 wrong passwords in a row — the 6th should show the rate-limit error, proving the Postgres-backed limiter works across serverless invocations (not just within one warm process).
 
-- [ ] **Step 9: Commit any Railway-generated config files**
+- [ ] **Step 11: Clean up local scratch files**
 
 ```powershell
-git status
+Remove-Item .env.vercel.local -ErrorAction SilentlyContinue
 ```
-If `railway init`/`railway up` created a config file (e.g. `railway.json` or `railway.toml`), add and commit it:
-```powershell
-git add railway.json
-git commit -m "Add Railway deployment config"
-```
-If nothing was generated, skip this step — there is nothing to commit.
+This file contains real connection strings pulled from Vercel — it's already gitignored via the `.env*.local` pattern added in Task 15, but delete it locally once you're done referencing it.
