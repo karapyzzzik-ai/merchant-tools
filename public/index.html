@@ -1710,6 +1710,11 @@ function initDragDrop() {
       draggingId = parseInt(card.getAttribute('data-id'));
       setTimeout(function() { card.classList.add('dragging'); }, 0);
       e.dataTransfer.effectAllowed = 'move';
+      // Required for the drop to be accepted in some browsers (notably
+      // Firefox) — without at least one setData() call, the browser can
+      // silently reject the drop and snap the card back to its origin
+      // even though dragover/drop both call preventDefault().
+      e.dataTransfer.setData('text/plain', String(draggingId));
     });
     card.addEventListener('dragend', function() {
       card.classList.remove('dragging');
