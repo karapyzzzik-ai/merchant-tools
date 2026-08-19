@@ -8,6 +8,7 @@ const { requireAuth } = require('./middleware/requireAuth');
 const { createAuthRouter } = require('./routes/auth');
 const partnersRoutes = require('./routes/partners');
 const integrationRoutes = require('./routes/integration');
+const feedAnalysesRoutes = require('./routes/feedAnalyses');
 
 function createApp({ pool, sessionStore, sessionSecret }) {
   const app = express();
@@ -46,6 +47,7 @@ function createApp({ pool, sessionStore, sessionSecret }) {
   app.use('/api', createAuthRouter(pool));
   app.use('/api/partners', requireAuth, verifyCsrf, partnersRoutes);
   app.use('/api/integration', requireAuth, verifyCsrf, integrationRoutes);
+  app.use('/api/feed-analyses', requireAuth, verifyCsrf, feedAnalysesRoutes);
 
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
