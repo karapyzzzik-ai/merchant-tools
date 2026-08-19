@@ -32,7 +32,11 @@ async function main() {
     await pool.query("ALTER ROLE merchant_tools_app WITH PASSWORD '" + password + "'");
     await pool.query('GRANT CONNECT ON DATABASE "' + dbName + '" TO merchant_tools_app');
     await pool.query('GRANT USAGE ON SCHEMA public TO merchant_tools_app');
-    await pool.query('GRANT SELECT, INSERT, UPDATE, DELETE ON users, partners, integration_checklist, session, rate_limits TO merchant_tools_app');
+    // Re-run this script any time a new table is added (e.g. feed_analyses,
+    // 2026-07-23) — grants are not automatic for tables created after this
+    // role already exists, and there's no ALTER DEFAULT PRIVILEGES set up
+    // to cover future tables either.
+    await pool.query('GRANT SELECT, INSERT, UPDATE, DELETE ON users, partners, integration_checklist, session, rate_limits, feed_analyses TO merchant_tools_app');
     await pool.query('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO merchant_tools_app');
     console.log('Role merchant_tools_app created/verified with restricted grants on database ' + dbName);
   } finally {

@@ -1084,14 +1084,22 @@ node server/db/migrate.js
 ```
 Expected: prints `Schema applied successfully.`
 
-- [ ] **Step 3: Deploy**
+- [ ] **Step 3: Re-grant the restricted app role on the new table**
+
+The app connects to production as the least-privilege `merchant_tools_app` role (set up in the prior auth/backend feature), which only has grants on the tables that existed when that role was created — `feed_analyses` is not among them and there is no automatic default-privilege rule covering new tables. Re-run the same script used to create the role; it's idempotent (safe to run again with the same or a newly-rotated password) and now grants on `feed_analyses` too:
+```powershell
+node server/scripts/create-restricted-role.js "<the same hex password used when this role was originally created — check your password manager/notes, don't generate a new one unless you're deliberately rotating it and will also update the deployed DATABASE_URL to match>"
+```
+Expected: prints `Role merchant_tools_app created/verified with restricted grants on database ...`. Skipping this step means every `/api/feed-analyses*` and `/api/partners/with-analyses` request will fail with a Postgres permission-denied error in production, despite every automated test passing (pg-mem has no privilege system, so this class of bug is invisible to the test suite).
+
+- [ ] **Step 4: Deploy**
 
 ```powershell
 vercel --prod --yes
 ```
 (Requires `VERCEL_TOKEN` set and the local checkout linked to the `merchant-tools-backend-auth` project — confirm `.vercel/project.json` shows `"projectName":"merchant-tools-backend-auth"` before deploying, since a missing/stale link creates a new, wrong project instead of updating the live one.)
 
-- [ ] **Step 4: Manual smoke test in a browser**
+- [ ] **Step 5: Manual smoke test in a browser**
 
 1. Upload a feed. The "Для кого этот фид?" modal should appear before parsing starts.
 2. Choose "Новый партнёр", fill in a name that doesn't already exist in the kanban, submit — analysis should run normally and the partner should appear in "Партнёры в работе" at stage "Новый партнёр".
