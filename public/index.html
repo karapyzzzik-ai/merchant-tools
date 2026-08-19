@@ -1469,6 +1469,35 @@ function renderAnalytics(items) {
     html += '</div>';
   }
 
+  window._lastMetrics = {
+    total: total,
+    inStock: inStock,
+    outStock: outStock,
+    titleFilled: titleFilled,
+    titlesWithSize: titlesWithSize.length,
+    withMain: withMain,
+    with2plus: with2plus,
+    noExtra: noExtra.length,
+    brandFilled: brandFilled,
+    noBrand: noBrand.length,
+    colorFilled: colorFilled,
+    colorInvalid: colorInvalid.length,
+    sizeFilled: sizeFilled,
+    sizeIssues: sizeIssues.length,
+    descFilled: descFilled,
+    descOk: descOk,
+    descShort: descShort.length,
+    catFilled: catFilled,
+    catShallow: catShallow.length,
+    noCat: noCat.length,
+    genderFilled: genderFilled,
+    genderInvalid: genderInvalid.length,
+    ageFilled: ageFilled,
+    ageInvalid: ageInvalid.length,
+    groupFilled: groupFilled,
+    noGroup: noGroup.length
+  };
+
   document.getElementById('feed-analytics').innerHTML = html;
   log('renderAnalytics OK');
 }
@@ -1564,6 +1593,7 @@ function showResult(items) {
   try { renderFields(allItems);  } catch(ex) { logErr('renderFields: '  + ex.message); }
   try { renderItems(allItems);   } catch(ex) { logErr('renderItems: '   + ex.message); }
   log('Всё готово ✓');
+  saveFeedAnalysisAndCompare();
 }
 
 var pendingFeedFile = null;
@@ -1707,6 +1737,99 @@ function fmtDate(iso) {
   if (!iso) return '—';
   var d = new Date(iso);
   return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+var METRIC_LABELS = {
+  total: 'Товаров в фиде',
+  inStock: 'В наличии',
+  outStock: 'Отсутствуют',
+  titleFilled: 'Названия заполнены',
+  titlesWithSize: 'Размер в названии (ошибка)',
+  withMain: 'С основным фото',
+  with2plus: 'С 2+ доп. фото',
+  noExtra: 'Без доп. фото',
+  brandFilled: 'Бренд заполнен',
+  noBrand: 'Без бренда',
+  colorFilled: 'Цвет заполнен',
+  colorInvalid: 'Нестандартный цвет',
+  sizeFilled: 'Размер заполнен',
+  sizeIssues: 'Несоответствие сетке',
+  descFilled: 'Описание заполнено',
+  descOk: 'Описание ≥50 симв.',
+  descShort: 'Короткое описание',
+  catFilled: 'Категория заполнена',
+  catShallow: 'Неглубокая категория',
+  noCat: 'Без категории',
+  genderFilled: 'Пол заполнен',
+  genderInvalid: 'Нестандартный пол',
+  ageFilled: 'Возраст заполнен',
+  ageInvalid: 'Нестандартный возраст',
+  groupFilled: 'Группировка заполнена',
+  noGroup: 'Без группировки'
+};
+
+var METRIC_HIGHER_IS_WORSE = {
+  outStock: true, titlesWithSize: true, noExtra: true, noBrand: true, colorInvalid: true,
+  sizeIssues: true, descShort: true, catShallow: true, noCat: true, genderInvalid: true,
+  ageInvalid: true, noGroup: true
+};
+
+function renderFeedComparison(prevMetrics, currMetrics, prevDate) {
+  var existing = document.getElementById('feed-comparison');
+  if (existing) existing.remove();
+
+  var keys = Object.keys(METRIC_LABELS).filter(function(k) {
+    return prevMetrics[k] !== undefined || currMetrics[k] !== undefined;
+  });
+  var rows = keys.map(function(k) {
+    var prev = prevMetrics[k] || 0;
+    var curr = currMetrics[k] || 0;
+    var diff = curr - prev;
+    var worseIfUp = !!METRIC_HIGHER_IS_WORSE[k];
+    var cls = diff === 0 ? '' : ((diff > 0) === worseIfUp ? 'err' : 'ok');
+    var arrow = diff === 0 ? '=' : (diff > 0 ? '▲' : '▼');
+    return '<div class="an-row"><span class="an-label">' + METRIC_LABELS[k] + '</span>'
+      + '<span class="an-value ' + cls + '">' + prev + ' → ' + curr + ' ' + arrow + '</span></div>';
+  }).join('');
+
+  var html = '<div class="an-card" id="feed-comparison" style="margin-bottom:1.5rem;">'
+    + '<p class="an-card-title">Сравнение с последней проверкой (' + fmtDate(prevDate) + ')</p>'
+    + rows
+    + '</div>';
+
+  document.getElementById('feed-analytics').insertAdjacentHTML('beforebegin', html);
+}
+
+function saveFeedAnalysisAndCompare() {
+  var existing = document.getElementById('feed-comparison');
+  if (existing) existing.remove();
+
+  if (!feedPartnerId) return;
+
+  var metrics = window._lastMetrics || {};
+  var previous = null;
+
+  var fetchPrevious = feedPartnerIsRepeat
+    ? apiFetch('/api/feed-analyses/latest?partner_id=' + feedPartnerId)
+        .then(function(res) { return res.ok ? res.json() : { analysis: null }; })
+        .then(function(data) { previous = data.analysis; })
+        .catch(function(e) { logErr('Failed to load previous analysis: ' + e.message); })
+    : Promise.resolve();
+
+  fetchPrevious
+    .then(function() {
+      return apiFetch('/api/feed-analyses', {
+        method: 'POST',
+        body: JSON.stringify({ partner_id: feedPartnerId, format: pendingFeedFormat, metrics: metrics })
+      });
+    })
+    .then(function(res) {
+      if (!res.ok) logErr('Failed to save feed analysis');
+    })
+    .then(function() {
+      if (previous) renderFeedComparison(previous.metrics, metrics, previous.created_at);
+    })
+    .catch(function(e) { logErr('saveFeedAnalysisAndCompare error: ' + e.message); });
 }
 
 function appReset() {
