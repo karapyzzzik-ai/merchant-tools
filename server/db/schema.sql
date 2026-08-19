@@ -40,3 +40,13 @@ CREATE TABLE IF NOT EXISTS rate_limits (
   count    INTEGER NOT NULL DEFAULT 0,
   reset_at TIMESTAMPTZ NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS feed_analyses (
+  id         SERIAL PRIMARY KEY,
+  partner_id INTEGER NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
+  format     TEXT NOT NULL CHECK (format IN ('xml', 'xlsx')),
+  metrics    JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_feed_analyses_partner_created ON feed_analyses (partner_id, created_at DESC);
