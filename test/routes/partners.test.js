@@ -79,3 +79,26 @@ test('PATCH on a nonexistent partner returns 404', async () => {
     .send({ stage: 's1' });
   expect(res.status).toBe(404);
 });
+
+test('GET /api/partners/with-analyses lists only partners with saved analyses', async () => {
+  const created = await agent
+    .post('/api/partners')
+    .set('X-CSRF-Token', csrfToken)
+    .send({ name: 'Xiaomi KZ', type: 'api' });
+  const id = created.body.id;
+
+  const beforeAnalysis = await agent.get('/api/partners/with-analyses');
+  expect(beforeAnalysis.status).toBe(200);
+  expect(beforeAnalysis.body.some((p) => p.id === id)).toBe(false);
+
+  await agent
+    .post('/api/feed-analyses')
+    .set('X-CSRF-Token', csrfToken)
+    .send({ partner_id: id, format: 'xml', metrics: { total: 5 } });
+
+  const afterAnalysis = await agent.get('/api/partners/with-analyses');
+  const match = afterAnalysis.body.find((p) => p.id === id);
+  expect(match).toBeDefined();
+  expect(match.name).toBe('Xiaomi KZ');
+  expect(match.last_checked_at).toBeTruthy();
+});

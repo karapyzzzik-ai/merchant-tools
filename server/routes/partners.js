@@ -23,6 +23,21 @@ router.get('/', asyncHandler(async (req, res) => {
   res.json(result.rows);
 }));
 
+// Registered before any potential future GET /:id route — a literal path
+// like this one must come first, or an :id-style pattern would swallow
+// "with-analyses" as if it were an id.
+router.get('/with-analyses', asyncHandler(async (req, res) => {
+  const pool = req.app.locals.pool;
+  const result = await pool.query(
+    `SELECT p.id, p.name, p.type, MAX(fa.created_at) AS last_checked_at
+     FROM partners p
+     JOIN feed_analyses fa ON fa.partner_id = p.id
+     GROUP BY p.id, p.name, p.type
+     ORDER BY last_checked_at DESC`
+  );
+  res.json(result.rows);
+}));
+
 router.post('/', asyncHandler(async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) {
