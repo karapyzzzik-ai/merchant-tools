@@ -473,6 +473,42 @@
   </div>
 </div>
 
+<!-- модалка выбора партнёра перед анализом фида -->
+<div id="modal-feed-partner" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:var(--bg); border-radius:var(--r-lg); padding:2rem; width:400px; max-width:calc(100vw - 2rem); max-height:80vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,.18);">
+    <div id="feed-partner-step-choose">
+      <h3 style="margin:0 0 1.25rem; font-size:16px;">Для кого этот фид?</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-primary" onclick="showFeedPartnerStep('new')">Новый партнёр</button>
+        <button class="btn" onclick="showFeedPartnerStep('repeat')">Повторный</button>
+        <button class="btn" onclick="skipFeedPartnerSelection()">Пропустить</button>
+      </div>
+    </div>
+    <div id="feed-partner-step-new" style="display:none;">
+      <h3 style="margin:0 0 1.25rem; font-size:16px;">Новый партнёр</h3>
+      <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px;">Название партнёра</label>
+      <input id="feed-partner-name-input" type="text" class="search-box" placeholder="Например: ТОО Romashka" style="margin-bottom:1rem;">
+      <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px;">Тип интеграции</label>
+      <select id="feed-partner-type-input" class="search-box" style="margin-bottom:1.5rem;">
+        <option value="api">API</option>
+        <option value="mall">Mall</option>
+      </select>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn" onclick="showFeedPartnerStep('choose')">Назад</button>
+        <button class="btn btn-primary" onclick="createFeedPartnerAndAnalyze()">Создать и анализировать</button>
+      </div>
+    </div>
+    <div id="feed-partner-step-repeat" style="display:none;">
+      <h3 style="margin:0 0 1.25rem; font-size:16px;">Повторный партнёр</h3>
+      <input id="feed-partner-search-input" type="text" class="search-box" placeholder="Поиск по названию…" style="margin-bottom:1rem;" oninput="renderFeedPartnerRepeatList()">
+      <div id="feed-partner-repeat-list" style="max-height:280px;overflow-y:auto;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1rem;">
+        <button class="btn" onclick="showFeedPartnerStep('choose')">Назад</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- модалка карточки партнёра -->
 <div id="modal-card" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:center; justify-content:center;">
   <div style="background:var(--bg); border-radius:var(--r-lg); padding:2rem; width:420px; max-width:calc(100vw - 2rem); max-height:80vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,.18);">
@@ -1530,7 +1566,117 @@ function showResult(items) {
   log('Всё готово ✓');
 }
 
+var pendingFeedFile = null;
+var pendingFeedFormat = null;
+var feedPartnerId = null;
+var feedPartnerIsRepeat = false;
+var feedPartnerRepeatOptions = [];
+
 function processFile(file, fmt) {
+  pendingFeedFile = file;
+  pendingFeedFormat = fmt;
+  openFeedPartnerModal();
+}
+
+function openFeedPartnerModal() {
+  document.getElementById('modal-feed-partner').style.display = 'flex';
+  showFeedPartnerStep('choose');
+}
+
+function closeFeedPartnerModal() {
+  document.getElementById('modal-feed-partner').style.display = 'none';
+}
+
+function showFeedPartnerStep(step) {
+  ['choose', 'new', 'repeat'].forEach(function(s) {
+    document.getElementById('feed-partner-step-' + s).style.display = s === step ? 'block' : 'none';
+  });
+  if (step === 'new') {
+    document.getElementById('feed-partner-name-input').value = '';
+  }
+  if (step === 'repeat') {
+    document.getElementById('feed-partner-search-input').value = '';
+    loadFeedPartnerRepeatList();
+  }
+}
+
+function skipFeedPartnerSelection() {
+  feedPartnerId = null;
+  feedPartnerIsRepeat = false;
+  closeFeedPartnerModal();
+  runFeedAnalysis();
+}
+
+function createFeedPartnerAndAnalyze() {
+  var name = document.getElementById('feed-partner-name-input').value.trim();
+  if (!name) { document.getElementById('feed-partner-name-input').focus(); return; }
+  var isDuplicate = partners.some(function(p) { return p.name.trim().toLowerCase() === name.toLowerCase(); });
+  if (isDuplicate && !confirm('Партнёр с таким именем уже есть в канбане — точно новый?')) {
+    return;
+  }
+  var type = document.getElementById('feed-partner-type-input').value;
+  apiFetch('/api/partners', { method: 'POST', body: JSON.stringify({ name: name, type: type }) })
+    .then(function(res) { return res.json().then(function(body) { return { ok: res.ok, body: body }; }); })
+    .then(function(result) {
+      if (!result.ok) { logErr('Failed to create partner: ' + JSON.stringify(result.body)); return; }
+      partners.push(result.body);
+      feedPartnerId = result.body.id;
+      feedPartnerIsRepeat = false;
+      closeFeedPartnerModal();
+      runFeedAnalysis();
+    })
+    .catch(function(e) { logErr('createFeedPartnerAndAnalyze error: ' + e.message); });
+}
+
+function loadFeedPartnerRepeatList() {
+  document.getElementById('feed-partner-repeat-list').innerHTML = '<p style="font-size:13px;color:var(--text2);">Загрузка…</p>';
+  apiFetch('/api/partners/with-analyses')
+    .then(function(res) {
+      if (!res.ok) { logErr('Failed to load partners with analyses'); return []; }
+      return res.json();
+    })
+    .then(function(list) {
+      feedPartnerRepeatOptions = list || [];
+      renderFeedPartnerRepeatList();
+    })
+    .catch(function(e) {
+      logErr('loadFeedPartnerRepeatList error: ' + e.message);
+      feedPartnerRepeatOptions = [];
+      renderFeedPartnerRepeatList();
+    });
+}
+
+function renderFeedPartnerRepeatList() {
+  var q = document.getElementById('feed-partner-search-input').value.trim().toLowerCase();
+  var container = document.getElementById('feed-partner-repeat-list');
+  if (!feedPartnerRepeatOptions.length) {
+    container.innerHTML = '<p style="font-size:13px;color:var(--text2);">Пока нет проверенных партнёров</p>';
+    return;
+  }
+  var filtered = feedPartnerRepeatOptions.filter(function(p) {
+    return !q || p.name.toLowerCase().indexOf(q) !== -1;
+  });
+  if (!filtered.length) {
+    container.innerHTML = '<p style="font-size:13px;color:var(--text2);">Ничего не найдено</p>';
+    return;
+  }
+  container.innerHTML = filtered.map(function(p) {
+    return '<div class="kanban-card" style="cursor:pointer;margin-bottom:6px;" onclick="selectFeedPartnerRepeat(' + p.id + ')">'
+      + '<div class="kanban-card-name">' + p.name + '</div>'
+      + '<div style="font-size:11px;color:var(--text3);">последняя проверка: ' + fmtDate(p.last_checked_at) + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function selectFeedPartnerRepeat(id) {
+  feedPartnerId = id;
+  feedPartnerIsRepeat = true;
+  closeFeedPartnerModal();
+  runFeedAnalysis();
+}
+
+function runFeedAnalysis() {
+  var file = pendingFeedFile, fmt = pendingFeedFormat;
   log('processFile:', file.name, fmt);
   document.getElementById('fname').textContent = file.name + ' · ' + (file.size / 1024).toFixed(1) + ' КБ';
   document.getElementById('upload-zone').style.display = 'none';
@@ -1557,6 +1703,12 @@ function processFile(file, fmt) {
 }
 
 
+function fmtDate(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 function appReset() {
   document.getElementById('upload-zone').style.display = '';
   document.getElementById('result').style.display = 'none';
@@ -1564,6 +1716,10 @@ function appReset() {
   document.getElementById('fi-xml').value = '';
   document.getElementById('fi-xlsx').value = '';
   allItems = [];
+  pendingFeedFile = null;
+  pendingFeedFormat = null;
+  feedPartnerId = null;
+  feedPartnerIsRepeat = false;
 }
 
 
