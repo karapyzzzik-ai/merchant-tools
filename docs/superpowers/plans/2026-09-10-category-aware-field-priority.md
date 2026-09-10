@@ -177,7 +177,7 @@ Add this immediately after the `var allItems = [];` line added in Task 1 (i.e. r
 ```javascript
 var CATEGORY_KEYWORDS = [
   { key: 'detskie', keywords: ['детск', 'для детей', 'малыш', 'младенец', 'новорожденн', 'подгузник', 'коляск', 'автокресл', 'погремушк', 'пелёнк'] },
-  { key: 'juvelirka', keywords: ['кольцо', 'кольца', 'серьг', 'цепочк', 'кулон', 'подвеск', 'ювелир', 'брошь', 'запонк', 'ожерель'] },
+  { key: 'juvelirka', keywords: ['кольцо', 'кольца', 'серьг', 'цепочк', 'кулон', 'подвеск', 'ювелир', 'брошь', 'запонк', 'ожерель', 'браслет'] },
   { key: 'sport', keywords: ['тренажёр', 'гантел', 'штанг', 'гиря', 'велосипед', 'самокат', 'ролики', 'коврик для йоги', 'скакалк', 'эспандер', 'беговая дорожк', 'наколенник', 'налокотник'] },
   { key: 'aksessuary', keywords: ['сумк', 'рюкзак', 'чехол', 'ремень', 'кошелёк', 'портмоне', 'шарф', 'перчатк', 'шапк', 'очки солнцезащитн', 'зонт'] },
   { key: 'obuv', keywords: ['обувь', 'кроссовк', 'ботинк', 'туфли', 'сапог', 'сандал'] },
@@ -209,6 +209,8 @@ function fieldLabel(key) {
 }
 ```
 
+> **Correction (post-Task-2-review):** the `juvelirka` keyword list above includes a bare `'браслет'` entry. An earlier draft of this task (and of `docs/superpowers/specs/2026-09-10-category-aware-field-priority-design.md` section 3) omitted it — the design doc's own prose claimed bare "браслет" resolves to `juvelirka`, but its keyword list never actually contained that word, so it silently fell through to `category: null` instead. Fixed in both the spec and here so the documented behavior and the code agree.
+
 - [ ] **Step 2: Verify detection behavior with a throwaway node script**
 
 Create `scratch-task2.js` in the repo root with this content (includes the exact code from Step 1, standalone):
@@ -216,7 +218,7 @@ Create `scratch-task2.js` in the repo root with this content (includes the exact
 ```javascript
 var CATEGORY_KEYWORDS = [
   { key: 'detskie', keywords: ['детск', 'для детей', 'малыш', 'младенец', 'новорожденн', 'подгузник', 'коляск', 'автокресл', 'погремушк', 'пелёнк'] },
-  { key: 'juvelirka', keywords: ['кольцо', 'кольца', 'серьг', 'цепочк', 'кулон', 'подвеск', 'ювелир', 'брошь', 'запонк', 'ожерель'] },
+  { key: 'juvelirka', keywords: ['кольцо', 'кольца', 'серьг', 'цепочк', 'кулон', 'подвеск', 'ювелир', 'брошь', 'запонк', 'ожерель', 'браслет'] },
   { key: 'sport', keywords: ['тренажёр', 'гантел', 'штанг', 'гиря', 'велосипед', 'самокат', 'ролики', 'коврик для йоги', 'скакалк', 'эспандер', 'беговая дорожк', 'наколенник', 'налокотник'] },
   { key: 'aksessuary', keywords: ['сумк', 'рюкзак', 'чехол', 'ремень', 'кошелёк', 'портмоне', 'шарф', 'перчатк', 'шапк', 'очки солнцезащитн', 'зонт'] },
   { key: 'obuv', keywords: ['обувь', 'кроссовк', 'ботинк', 'туфли', 'сапог', 'сандал'] },
@@ -247,8 +249,8 @@ var assert = require('assert');
 assert.strictEqual(detectCategory({ product_type: 'Одежда > Мужская > Футболки', title: 'Футболка мужская' }), 'odezhda');
 // Fallback to title when product_type has no match
 assert.strictEqual(detectCategory({ product_type: null, title: 'Фитнес-браслет Xiaomi Mi Band 8' }), 'elektronika');
-// The documented conflict: bare "браслет" (no фитнес-/смарт- prefix) must win as jewelry, not electronics
-assert.strictEqual(detectCategory({ product_type: null, title: 'Браслет золотой с кулоном' }), 'juvelirka');
+// The documented conflict: bare "браслет" (no фитнес-/смарт- prefix, and no other jewelry keyword in the title) must win as jewelry, not electronics
+assert.strictEqual(detectCategory({ product_type: null, title: 'Браслет плетёный, металл' }), 'juvelirka');
 // No match anywhere -> null
 assert.strictEqual(detectCategory({ product_type: null, title: 'Неопознанный товар XZ-9000' }), null);
 // Case-insensitivity
