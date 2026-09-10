@@ -477,7 +477,7 @@ var result = computeCategoryBreakdown(items);
 var odezhda = result.rows.filter(function(r) { return r.key === 'odezhda'; })[0];
 assert.ok(odezhda, 'odezhda row must exist');
 assert.strictEqual(odezhda.count, 2);
-assert.strictEqual(odezhda.criticalFieldCount, 7);
+assert.strictEqual(odezhda.criticalFieldCount, 6); // brand, size, size_system, gender, age_group, item_group_id (color is medium, sale_price is optional in this fixture)
 var dom = result.rows.filter(function(r) { return r.key === 'dom'; })[0];
 assert.strictEqual(dom.criticalPct, 100, 'dom has only brand critical, and it is filled -> 100%');
 var booksMedia = result.rows.filter(function(r) { return r.key === 'books_media'; })[0];
