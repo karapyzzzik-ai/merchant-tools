@@ -1002,6 +1002,40 @@ var FIELDS = [
   { key:'energy_efficiency_class', label:'Класс энергоэффективности', req:false },
   { key:'size_system', label:'Размерная сетка', req:false },
 ];
+
+// ── Категорийная приоритезация (docs/superpowers/specs/2026-09-10-...) ──
+var CONDITIONAL_FIELDS = ['brand', 'color', 'size', 'size_system', 'gender', 'age_group', 'item_group_id', 'sale_price'];
+
+var CATEGORY_LIST = [
+  { key: 'odezhda',           label: 'Одежда' },
+  { key: 'obuv',               label: 'Обувь' },
+  { key: 'dom',                 label: 'Товары для дома' },
+  { key: 'krasota',            label: 'Красота и здоровье' },
+  { key: 'detskie',            label: 'Детские товары' },
+  { key: 'elektronika',        label: 'Электроника' },
+  { key: 'aksessuary',         label: 'Аксессуары' },
+  { key: 'sport',               label: 'Спортивные товары' },
+  { key: 'juvelirka',          label: 'Ювелирные изделия' },
+  { key: 'books_media',        label: 'Книги, музыка и фильмы' },
+  { key: 'gifts',               label: 'Подарки и сувениры' },
+  { key: 'school_creativity',  label: 'Школа и творчество' }
+];
+
+var CATEGORY_FIELD_TIERS = {
+  odezhda:           { brand: 'critical', color: 'medium',   size: 'critical', size_system: 'critical', gender: 'critical', age_group: 'critical', item_group_id: 'critical', sale_price: 'optional' },
+  obuv:              { brand: 'critical', color: 'medium',   size: 'critical', size_system: 'critical', gender: 'critical', age_group: 'critical', item_group_id: 'critical', sale_price: 'optional' },
+  dom:               { brand: 'critical', color: 'medium',   size: 'medium',   size_system: 'optional', gender: 'optional', age_group: 'optional', item_group_id: 'optional', sale_price: 'optional' },
+  krasota:           { brand: 'critical', color: 'medium',   size: 'critical', size_system: 'optional', gender: 'critical', age_group: 'optional', item_group_id: 'critical', sale_price: 'optional' },
+  detskie:           { brand: 'critical', color: 'medium',   size: 'medium',   size_system: 'optional', gender: 'medium',   age_group: 'critical', item_group_id: 'optional', sale_price: 'optional' },
+  elektronika:       { brand: 'critical', color: 'critical', size: 'optional', size_system: 'optional', gender: 'optional', age_group: 'optional', item_group_id: 'medium',   sale_price: 'optional' },
+  aksessuary:        { brand: 'critical', color: 'critical', size: 'medium',   size_system: 'optional', gender: 'critical', age_group: 'optional', item_group_id: 'optional', sale_price: 'optional' },
+  sport:             { brand: 'critical', color: 'medium',   size: 'medium',   size_system: 'optional', gender: 'medium',   age_group: 'medium',   item_group_id: 'medium',   sale_price: 'optional' },
+  juvelirka:         { brand: 'critical', color: 'medium',   size: 'critical', size_system: 'critical', gender: 'critical', age_group: 'optional', item_group_id: 'critical', sale_price: 'optional' },
+  books_media:       { brand: 'medium',   color: 'optional', size: 'optional', size_system: 'optional', gender: 'optional', age_group: 'medium',   item_group_id: 'medium',   sale_price: 'optional' },
+  gifts:             { brand: 'medium',   color: 'critical', size: 'medium',   size_system: 'optional', gender: 'medium',   age_group: 'medium',   item_group_id: 'medium',   sale_price: 'optional' },
+  school_creativity: { brand: 'medium',   color: 'critical', size: 'medium',   size_system: 'optional', gender: 'optional', age_group: 'critical', item_group_id: 'medium',   sale_price: 'optional' }
+};
+
 var allItems = [];
 
 function getField(block, key) {
