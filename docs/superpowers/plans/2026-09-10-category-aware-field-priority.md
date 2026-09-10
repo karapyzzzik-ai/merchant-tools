@@ -574,8 +574,8 @@ var CATEGORY_FIELD_TIERS = {
   sport: { age_group: 'medium' },
   school_creativity: { age_group: 'critical' }
 };
-// Only age_group is exercised in this isolated test; stub the rest of the loop harmlessly.
-CONDITIONAL_FIELDS.slice(1).forEach(function (f) {
+// Only age_group is exercised in this isolated test; stub every other field harmlessly.
+CONDITIONAL_FIELDS.filter(function (f) { return f !== 'age_group'; }).forEach(function (f) {
   Object.keys(CATEGORY_FIELD_TIERS).forEach(function (k) { CATEGORY_FIELD_TIERS[k][f] = 'optional'; });
 });
 function detectCategory(item) { return item.__testCat || null; }
