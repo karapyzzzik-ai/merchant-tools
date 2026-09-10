@@ -1396,7 +1396,8 @@ function renderAnalytics(items) {
       (arr.length > (limit||30) ? '<p style="font-size:11px;color:var(--text3);margin:4px 0 0">...и ещё '+(arr.length-(limit||30))+'</p>' : '');
   }
 
-  var html = '<div class="analytics-grid">';
+  var html = renderCategoryBreakdown(computeCategoryBreakdown(items));
+  html += '<div class="analytics-grid">';
 
   // 1. Товары
   html += anCard('Товары', [
@@ -1576,8 +1577,7 @@ function renderAnalytics(items) {
     recs.push({ sev: 'err', text: 'Заполните описание (<b>description</b>) у ' + (total-descFilled) + ' товаров.', plain: 'Заполните описание (description) у ' + (total-descFilled) + ' товаров.' });
   if (descShort.length)
     recs.push({ sev: 'warn', text: 'Описание короче 50 символов у ' + descShort.length + ' товаров. Расширьте текст для улучшения релевантности.', plain: 'Описание короче 50 символов у ' + descShort.length + ' товаров. Расширьте текст для улучшения релевантности.' });
-  if (brandFilled < total)
-    recs.push({ sev: 'warn', text: 'Заполните бренд (<b>brand</b>) у ' + (total-brandFilled) + ' товаров.', plain: 'Заполните бренд (brand) у ' + (total-brandFilled) + ' товаров.' });
+  recs = recs.concat(buildTieredFieldRecs(items));
   if (colorInvalid.length)
     recs.push({ sev: 'warn', text: 'Нестандартные значения цвета у ' + colorInvalid.length + ' товаров. Используйте стандартные названия цветов (например: белый, чёрный, красный).', plain: 'Нестандартные значения цвета у ' + colorInvalid.length + ' товаров. Используйте стандартные названия цветов (например: белый, чёрный, красный).' });
   if (sizeIssues.length)
@@ -1586,8 +1586,6 @@ function renderAnalytics(items) {
     recs.push({ sev: 'err', text: 'Заполните категорию (<b>product_type</b>) у ' + noCat.length + ' товаров.', plain: 'Заполните категорию (product_type) у ' + noCat.length + ' товаров.' });
   if (catShallow.length)
     recs.push({ sev: 'err', text: 'Углубите путь категории до минимум L3 (пример: <b>Одежда > Мужская > Футболки</b>) у ' + catShallow.length + ' товаров.', plain: 'Углубите путь категории до минимум L3 (пример: Одежда > Мужская > Футболки) у ' + catShallow.length + ' товаров.' });
-  if (noGroup.length)
-    recs.push({ sev: 'warn', text: 'Добавьте <b>item_group_id</b> для группировки вариантов товара. Отсутствует у ' + noGroup.length + ' позиций.', plain: 'Добавьте item_group_id для группировки вариантов товара. Отсутствует у ' + noGroup.length + ' позиций.' });
   if (outStock > 0)
     recs.push({ sev: 'info', text: outStock + ' товаров отмечены как отсутствующие (<b>out of stock</b>). Убедитесь что остатки актуальны.', plain: outStock + ' товаров отмечены как отсутствующие (out of stock). Убедитесь что остатки актуальны.' });
 
