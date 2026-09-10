@@ -1040,11 +1040,11 @@ var allItems = [];
 
 var CATEGORY_KEYWORDS = [
   { key: 'detskie', keywords: ['детск', 'для детей', 'малыш', 'младенец', 'новорожденн', 'подгузник', 'коляск', 'автокресл', 'погремушк', 'пелёнк'] },
-  { key: 'elektronika', keywords: ['смартфон', 'телефон', 'ноутбук', 'компьютер', 'планшет', 'наушник', 'умные час', 'смарт-час', 'фитнес-браслет', 'умная колонк', 'телевизор', 'пылесос', 'фен', 'блендер', 'кабель', 'зарядн', 'powerbank', 'повербанк', 'фотоаппарат', 'увлажнитель воздух', 'очиститель воздух'] },
-  { key: 'juvelirka', keywords: ['кольцо', 'кольца', 'серьг', 'цепочк', 'кулон', 'подвеск', 'ювелир', 'брошь', 'запонк', 'ожерель', 'браслет'] },
   { key: 'sport', keywords: ['тренажёр', 'гантел', 'штанг', 'гиря', 'велосипед', 'самокат', 'ролики', 'коврик для йоги', 'скакалк', 'эспандер', 'беговая дорожк', 'наколенник', 'налокотник'] },
   { key: 'aksessuary', keywords: ['сумк', 'рюкзак', 'чехол', 'ремень', 'кошелёк', 'портмоне', 'шарф', 'перчатк', 'шапк', 'очки солнцезащитн', 'зонт'] },
   { key: 'obuv', keywords: ['обувь', 'кроссовк', 'ботинк', 'туфли', 'сапог', 'сандал'] },
+  { key: 'elektronika', keywords: ['смартфон', 'телефон', 'ноутбук', 'компьютер', 'планшет', 'наушник', 'умные час', 'смарт-час', 'фитнес-браслет', 'смарт-браслет', 'умная колонк', 'телевизор', 'пылесос', 'фен', 'блендер', 'кабель', 'зарядн', 'powerbank', 'повербанк', 'фотоаппарат', 'увлажнитель воздух', 'очиститель воздух'] },
+  { key: 'juvelirka', keywords: ['кольцо', 'кольца', 'серьг', 'цепочк', 'кулон', 'подвеск', 'ювелир', 'брошь', 'запонк', 'ожерель', 'браслет'] },
   { key: 'odezhda', keywords: ['одежд', 'футболк', 'рубашк', 'брюки', 'джинс', 'платье', 'юбк', 'куртк', 'пальто', 'свитер', 'толстовк', 'шорты', 'костюм', 'бельё'] },
   { key: 'krasota', keywords: ['крем', 'сыворотк', 'шампунь', 'парфюм', 'дух', 'туалетная вода', 'тушь', 'помад', 'тональн', 'витамин', 'бад', 'космети', 'уход за кож', 'уход за волос'] },
   { key: 'dom', keywords: ['мебель', 'посуд', 'кастрюл', 'сковород', 'постельн', 'полотенц', 'штор', 'светильник', 'лампа', 'ковёр', 'декор для дома', 'кухонн утвар'] }
@@ -1131,11 +1131,11 @@ function computeCategoryBreakdown(items) {
 
 function renderCategoryBreakdown(breakdown) {
   if (!breakdown.rows.length && !breakdown.unknown.length) return '';
-  var html = '<p style="margin:0 0 .75rem;font-size:15px;font-weight:600;">Разбивка по категориям</p><div class="analytics-grid" style="margin-bottom:1.5rem;">';
+  var html = '<p style="margin:0 0 .75rem;font-size:15px;font-weight:600;">Разбивка по категориям</p><div class="analytics-grid">';
   breakdown.rows.forEach(function(row) {
     var pctRow = row.criticalPct === null
       ? ['Критичные поля', 'нет критичных полей для категории', '']
-      : ['Критичные поля заполнены', row.criticalPct + '%', row.criticalPct === 100 ? 'ok' : row.criticalPct >= 50 ? 'warn' : 'err'];
+      : ['Критичные поля', row.criticalPct + '%', row.criticalPct === 100 ? 'ok' : row.criticalPct >= 50 ? 'warn' : 'err'];
     html += anCard(row.label, [
       ['Товаров', row.count.toLocaleString('ru'), ''],
       pctRow
@@ -1154,13 +1154,16 @@ function renderCategoryBreakdown(breakdown) {
 
 function buildTieredFieldRecs(items) {
   var recs = [];
+  var categories = items.map(detectCategory);
   CONDITIONAL_FIELDS.forEach(function(field) {
     var critCats = {}, warnCats = {}, critTotal = 0, warnTotal = 0;
-    items.forEach(function(item) {
+    items.forEach(function(item, idx) {
       if (item[field]) return;
-      var cat = detectCategory(item);
+      var cat = categories[idx];
       if (!cat) return;
-      var tier = CATEGORY_FIELD_TIERS[cat][field];
+      var tiers = CATEGORY_FIELD_TIERS[cat];
+      if (!tiers) return;
+      var tier = tiers[field];
       if (tier === 'critical') { critTotal++; critCats[cat] = true; }
       else if (tier === 'medium') { warnTotal++; warnCats[cat] = true; }
     });
@@ -1182,6 +1185,31 @@ function buildTieredFieldRecs(items) {
       });
     }
   });
+  return recs;
+}
+
+function buildUnknownCategoryFallbackRecs(items) {
+  var recs = [];
+  var unknownNoBrand = 0, unknownNoGroup = 0;
+  items.forEach(function(item) {
+    if (detectCategory(item)) return;
+    if (!item.brand) unknownNoBrand++;
+    if (!item.item_group_id) unknownNoGroup++;
+  });
+  if (unknownNoBrand) {
+    recs.push({
+      sev: 'warn',
+      text: 'Заполните <b>бренд</b> у ' + unknownNoBrand + ' товаров с неопределённой категорией — без категории не получится оценить, насколько поле критично.',
+      plain: 'Заполните бренд у ' + unknownNoBrand + ' товаров с неопределённой категорией — без категории не получится оценить, насколько поле критично.'
+    });
+  }
+  if (unknownNoGroup) {
+    recs.push({
+      sev: 'warn',
+      text: 'Добавьте <b>item_group_id</b> для группировки вариантов товара у ' + unknownNoGroup + ' товаров с неопределённой категорией.',
+      plain: 'Добавьте item_group_id для группировки вариантов товара у ' + unknownNoGroup + ' товаров с неопределённой категорией.'
+    });
+  }
   return recs;
 }
 
@@ -1578,6 +1606,7 @@ function renderAnalytics(items) {
   if (descShort.length)
     recs.push({ sev: 'warn', text: 'Описание короче 50 символов у ' + descShort.length + ' товаров. Расширьте текст для улучшения релевантности.', plain: 'Описание короче 50 символов у ' + descShort.length + ' товаров. Расширьте текст для улучшения релевантности.' });
   recs = recs.concat(buildTieredFieldRecs(items));
+  recs = recs.concat(buildUnknownCategoryFallbackRecs(items));
   if (colorInvalid.length)
     recs.push({ sev: 'warn', text: 'Нестандартные значения цвета у ' + colorInvalid.length + ' товаров. Используйте стандартные названия цветов (например: белый, чёрный, красный).', plain: 'Нестандартные значения цвета у ' + colorInvalid.length + ' товаров. Используйте стандартные названия цветов (например: белый, чёрный, красный).' });
   if (sizeIssues.length)
