@@ -177,11 +177,11 @@ Add this immediately after the `var allItems = [];` line added in Task 1 (i.e. r
 ```javascript
 var CATEGORY_KEYWORDS = [
   { key: 'detskie', keywords: ['детск', 'для детей', 'малыш', 'младенец', 'новорожденн', 'подгузник', 'коляск', 'автокресл', 'погремушк', 'пелёнк'] },
+  { key: 'elektronika', keywords: ['смартфон', 'телефон', 'ноутбук', 'компьютер', 'планшет', 'наушник', 'умные час', 'смарт-час', 'фитнес-браслет', 'умная колонк', 'телевизор', 'пылесос', 'фен', 'блендер', 'кабель', 'зарядн', 'powerbank', 'повербанк', 'фотоаппарат', 'увлажнитель воздух', 'очиститель воздух'] },
   { key: 'juvelirka', keywords: ['кольцо', 'кольца', 'серьг', 'цепочк', 'кулон', 'подвеск', 'ювелир', 'брошь', 'запонк', 'ожерель', 'браслет'] },
   { key: 'sport', keywords: ['тренажёр', 'гантел', 'штанг', 'гиря', 'велосипед', 'самокат', 'ролики', 'коврик для йоги', 'скакалк', 'эспандер', 'беговая дорожк', 'наколенник', 'налокотник'] },
   { key: 'aksessuary', keywords: ['сумк', 'рюкзак', 'чехол', 'ремень', 'кошелёк', 'портмоне', 'шарф', 'перчатк', 'шапк', 'очки солнцезащитн', 'зонт'] },
   { key: 'obuv', keywords: ['обувь', 'кроссовк', 'ботинк', 'туфли', 'сапог', 'сандал'] },
-  { key: 'elektronika', keywords: ['смартфон', 'телефон', 'ноутбук', 'компьютер', 'планшет', 'наушник', 'умные час', 'смарт-час', 'фитнес-браслет', 'умная колонк', 'телевизор', 'пылесос', 'фен', 'блендер', 'кабель', 'зарядн', 'powerbank', 'повербанк', 'фотоаппарат', 'увлажнитель воздух', 'очиститель воздух'] },
   { key: 'odezhda', keywords: ['одежд', 'футболк', 'рубашк', 'брюки', 'джинс', 'платье', 'юбк', 'куртк', 'пальто', 'свитер', 'толстовк', 'шорты', 'костюм', 'бельё'] },
   { key: 'krasota', keywords: ['крем', 'сыворотк', 'шампунь', 'парфюм', 'дух', 'туалетная вода', 'тушь', 'помад', 'тональн', 'витамин', 'бад', 'космети', 'уход за кож', 'уход за волос'] },
   { key: 'dom', keywords: ['мебель', 'посуд', 'кастрюл', 'сковород', 'постельн', 'полотенц', 'штор', 'светильник', 'лампа', 'ковёр', 'декор для дома', 'кухонн утвар'] }
@@ -209,7 +209,7 @@ function fieldLabel(key) {
 }
 ```
 
-> **Correction (post-Task-2-review):** the `juvelirka` keyword list above includes a bare `'браслет'` entry. An earlier draft of this task (and of `docs/superpowers/specs/2026-09-10-category-aware-field-priority-design.md` section 3) omitted it — the design doc's own prose claimed bare "браслет" resolves to `juvelirka`, but its keyword list never actually contained that word, so it silently fell through to `category: null` instead. Fixed in both the spec and here so the documented behavior and the code agree.
+> **Correction (post-Task-2-review):** two changes from the plan's original draft. (1) `juvelirka` now includes a bare `'браслет'` entry — an earlier draft (and of `docs/superpowers/specs/2026-09-10-category-aware-field-priority-design.md` section 3) omitted it, so the design doc's own claim that bare "браслет" resolves to `juvelirka` was never actually true in the data. (2) `elektronika` moved to position 2, before `juvelirka` (was position 6, after it). This second change is not cosmetic: `matchCategoryText` does plain substring matching with no word-boundary awareness, so `'браслет'` is a substring of `'фитнес-браслет'` too — with `juvelirka` checked first, *any* title containing "фитнес-браслет" would have matched `juvelirka`'s bare `'браслет'` before ever reaching `elektronika`'s specific compound phrase. `elektronika` must be checked first so its narrower compound phrases (`'фитнес-браслет'`, `'смарт-браслет'`) get first refusal; only when those don't match does a plain `'браслет'` fall through to `juvelirka`. Both fixes are reflected in the spec.
 
 - [ ] **Step 2: Verify detection behavior with a throwaway node script**
 
@@ -218,11 +218,11 @@ Create `scratch-task2.js` in the repo root with this content (includes the exact
 ```javascript
 var CATEGORY_KEYWORDS = [
   { key: 'detskie', keywords: ['детск', 'для детей', 'малыш', 'младенец', 'новорожденн', 'подгузник', 'коляск', 'автокресл', 'погремушк', 'пелёнк'] },
+  { key: 'elektronika', keywords: ['смартфон', 'телефон', 'ноутбук', 'компьютер', 'планшет', 'наушник', 'умные час', 'смарт-час', 'фитнес-браслет', 'умная колонк', 'телевизор', 'пылесос', 'фен', 'блендер', 'кабель', 'зарядн', 'powerbank', 'повербанк', 'фотоаппарат', 'увлажнитель воздух', 'очиститель воздух'] },
   { key: 'juvelirka', keywords: ['кольцо', 'кольца', 'серьг', 'цепочк', 'кулон', 'подвеск', 'ювелир', 'брошь', 'запонк', 'ожерель', 'браслет'] },
   { key: 'sport', keywords: ['тренажёр', 'гантел', 'штанг', 'гиря', 'велосипед', 'самокат', 'ролики', 'коврик для йоги', 'скакалк', 'эспандер', 'беговая дорожк', 'наколенник', 'налокотник'] },
   { key: 'aksessuary', keywords: ['сумк', 'рюкзак', 'чехол', 'ремень', 'кошелёк', 'портмоне', 'шарф', 'перчатк', 'шапк', 'очки солнцезащитн', 'зонт'] },
   { key: 'obuv', keywords: ['обувь', 'кроссовк', 'ботинк', 'туфли', 'сапог', 'сандал'] },
-  { key: 'elektronika', keywords: ['смартфон', 'телефон', 'ноутбук', 'компьютер', 'планшет', 'наушник', 'умные час', 'смарт-час', 'фитнес-браслет', 'умная колонк', 'телевизор', 'пылесос', 'фен', 'блендер', 'кабель', 'зарядн', 'powerbank', 'повербанк', 'фотоаппарат', 'увлажнитель воздух', 'очиститель воздух'] },
   { key: 'odezhda', keywords: ['одежд', 'футболк', 'рубашк', 'брюки', 'джинс', 'платье', 'юбк', 'куртк', 'пальто', 'свитер', 'толстовк', 'шорты', 'костюм', 'бельё'] },
   { key: 'krasota', keywords: ['крем', 'сыворотк', 'шампунь', 'парфюм', 'дух', 'туалетная вода', 'тушь', 'помад', 'тональн', 'витамин', 'бад', 'космети', 'уход за кож', 'уход за волос'] },
   { key: 'dom', keywords: ['мебель', 'посуд', 'кастрюл', 'сковород', 'постельн', 'полотенц', 'штор', 'светильник', 'лампа', 'ковёр', 'декор для дома', 'кухонн утвар'] }
