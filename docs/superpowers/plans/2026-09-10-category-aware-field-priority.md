@@ -691,9 +691,15 @@ Find and delete:
 
 - [ ] **Step 4: Confirm the file still parses**
 
-Run: `node --check public/index.html 2>&1 | head -5`
+`public/index.html` has exactly one inline `<script>` block (the other `<script src="...">` tag only loads the XLSX library, no inline body). Extract just that block and check it with `node --check`, rather than checking the whole `.html` file (which would fail immediately on the `<!DOCTYPE` and never actually look at the script):
 
-This will report a syntax error pointing at the `<` of the surrounding HTML (expected — it's an `.html` file, not pure JS) rather than at anything inside the `<script>` block. What matters is that the reported error location is the HTML markup (e.g. an early `<!DOCTYPE` or tag), not a line number inside the script section touched by Tasks 1–5. If the error instead points inside the script section (e.g. near the lines just edited), stop and fix the syntax error before proceeding.
+```bash
+sed -n '/^<script>$/,/^<\/script>$/{ /^<script>$/d; /^<\/script>$/d; p; }' public/index.html > scratch-syntax-check.js
+node --check scratch-syntax-check.js
+rm scratch-syntax-check.js
+```
+
+Expected: no output from `node --check` and exit code 0. If it reports a syntax error, the line number is relative to the extracted block (add ~608 to map back to `public/index.html`) — fix it before proceeding.
 
 - [ ] **Step 5: Manual smoke test (per spec section 6 — no browser in this environment, so this step is for you to run locally)**
 
