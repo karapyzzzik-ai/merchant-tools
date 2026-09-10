@@ -177,11 +177,11 @@ Add this immediately after the `var allItems = [];` line added in Task 1 (i.e. r
 ```javascript
 var CATEGORY_KEYWORDS = [
   { key: 'detskie', keywords: ['детск', 'для детей', 'малыш', 'младенец', 'новорожденн', 'подгузник', 'коляск', 'автокресл', 'погремушк', 'пелёнк'] },
-  { key: 'elektronika', keywords: ['смартфон', 'телефон', 'ноутбук', 'компьютер', 'планшет', 'наушник', 'умные час', 'смарт-час', 'фитнес-браслет', 'умная колонк', 'телевизор', 'пылесос', 'фен', 'блендер', 'кабель', 'зарядн', 'powerbank', 'повербанк', 'фотоаппарат', 'увлажнитель воздух', 'очиститель воздух'] },
-  { key: 'juvelirka', keywords: ['кольцо', 'кольца', 'серьг', 'цепочк', 'кулон', 'подвеск', 'ювелир', 'брошь', 'запонк', 'ожерель', 'браслет'] },
   { key: 'sport', keywords: ['тренажёр', 'гантел', 'штанг', 'гиря', 'велосипед', 'самокат', 'ролики', 'коврик для йоги', 'скакалк', 'эспандер', 'беговая дорожк', 'наколенник', 'налокотник'] },
   { key: 'aksessuary', keywords: ['сумк', 'рюкзак', 'чехол', 'ремень', 'кошелёк', 'портмоне', 'шарф', 'перчатк', 'шапк', 'очки солнцезащитн', 'зонт'] },
   { key: 'obuv', keywords: ['обувь', 'кроссовк', 'ботинк', 'туфли', 'сапог', 'сандал'] },
+  { key: 'elektronika', keywords: ['смартфон', 'телефон', 'ноутбук', 'компьютер', 'планшет', 'наушник', 'умные час', 'смарт-час', 'фитнес-браслет', 'смарт-браслет', 'умная колонк', 'телевизор', 'пылесос', 'фен', 'блендер', 'кабель', 'зарядн', 'powerbank', 'повербанк', 'фотоаппарат', 'увлажнитель воздух', 'очиститель воздух'] },
+  { key: 'juvelirka', keywords: ['кольцо', 'кольца', 'серьг', 'цепочк', 'кулон', 'подвеск', 'ювелир', 'брошь', 'запонк', 'ожерель', 'браслет'] },
   { key: 'odezhda', keywords: ['одежд', 'футболк', 'рубашк', 'брюки', 'джинс', 'платье', 'юбк', 'куртк', 'пальто', 'свитер', 'толстовк', 'шорты', 'костюм', 'бельё'] },
   { key: 'krasota', keywords: ['крем', 'сыворотк', 'шампунь', 'парфюм', 'дух', 'туалетная вода', 'тушь', 'помад', 'тональн', 'витамин', 'бад', 'космети', 'уход за кож', 'уход за волос'] },
   { key: 'dom', keywords: ['мебель', 'посуд', 'кастрюл', 'сковород', 'постельн', 'полотенц', 'штор', 'светильник', 'лампа', 'ковёр', 'декор для дома', 'кухонн утвар'] }
@@ -209,7 +209,7 @@ function fieldLabel(key) {
 }
 ```
 
-> **Correction (post-Task-2-review):** two changes from the plan's original draft. (1) `juvelirka` now includes a bare `'браслет'` entry — an earlier draft (and of `docs/superpowers/specs/2026-09-10-category-aware-field-priority-design.md` section 3) omitted it, so the design doc's own claim that bare "браслет" resolves to `juvelirka` was never actually true in the data. (2) `elektronika` moved to position 2, before `juvelirka` (was position 6, after it). This second change is not cosmetic: `matchCategoryText` does plain substring matching with no word-boundary awareness, so `'браслет'` is a substring of `'фитнес-браслет'` too — with `juvelirka` checked first, *any* title containing "фитнес-браслет" would have matched `juvelirka`'s bare `'браслет'` before ever reaching `elektronika`'s specific compound phrase. `elektronika` must be checked first so its narrower compound phrases (`'фитнес-браслет'`, `'смарт-браслет'`) get first refusal; only when those don't match does a plain `'браслет'` fall through to `juvelirka`. Both fixes are reflected in the spec.
+> **Correction (post-Task-2-review, then corrected again at final whole-branch review):** the code block above is the FINAL state — read it as such, not as the literal history. Three changes from the plan's original draft, in the order they were actually found: (1) `juvelirka` gained a bare `'браслет'` entry — an earlier draft (and of `docs/superpowers/specs/2026-09-10-category-aware-field-priority-design.md` section 3) omitted it, so the design doc's own claim that bare "браслет" resolves to `juvelirka` was never actually true in the data. (2) Task 2's review moved `elektronika` to position 2 (right after `detskie`), because `matchCategoryText` does plain substring matching with no word-boundary awareness — `'браслет'` is a substring of `'фитнес-браслет'` too, so `juvelirka` checked first would swallow fitness-bracelet titles before `elektronika` ever saw them. (3) The final whole-branch review caught that step (2) overcorrected: `elektronika`'s own dictionary isn't narrow (`'телефон'`, `'ноутбук'`, `'фен'`, `'кабель'` are short common substrings), so putting it second overall shadowed `aksessuary` for phone cases and laptop bags. The only real constraint is "`elektronika` before `juvelirka`", not "`elektronika` second" — so it moved again, to right after `obuv` (position 5), immediately before `juvelirka`. The same final review also caught that `elektronika`'s keyword list was missing `'смарт-браслет'` even though the design doc always claimed it was there — added in the same pass. All of this is reflected in the spec, which is authoritative if this note and the spec ever disagree again.
 
 - [ ] **Step 2: Verify detection behavior with a throwaway node script**
 
@@ -218,11 +218,11 @@ Create `scratch-task2.js` in the repo root with this content (includes the exact
 ```javascript
 var CATEGORY_KEYWORDS = [
   { key: 'detskie', keywords: ['детск', 'для детей', 'малыш', 'младенец', 'новорожденн', 'подгузник', 'коляск', 'автокресл', 'погремушк', 'пелёнк'] },
-  { key: 'elektronika', keywords: ['смартфон', 'телефон', 'ноутбук', 'компьютер', 'планшет', 'наушник', 'умные час', 'смарт-час', 'фитнес-браслет', 'умная колонк', 'телевизор', 'пылесос', 'фен', 'блендер', 'кабель', 'зарядн', 'powerbank', 'повербанк', 'фотоаппарат', 'увлажнитель воздух', 'очиститель воздух'] },
-  { key: 'juvelirka', keywords: ['кольцо', 'кольца', 'серьг', 'цепочк', 'кулон', 'подвеск', 'ювелир', 'брошь', 'запонк', 'ожерель', 'браслет'] },
   { key: 'sport', keywords: ['тренажёр', 'гантел', 'штанг', 'гиря', 'велосипед', 'самокат', 'ролики', 'коврик для йоги', 'скакалк', 'эспандер', 'беговая дорожк', 'наколенник', 'налокотник'] },
   { key: 'aksessuary', keywords: ['сумк', 'рюкзак', 'чехол', 'ремень', 'кошелёк', 'портмоне', 'шарф', 'перчатк', 'шапк', 'очки солнцезащитн', 'зонт'] },
   { key: 'obuv', keywords: ['обувь', 'кроссовк', 'ботинк', 'туфли', 'сапог', 'сандал'] },
+  { key: 'elektronika', keywords: ['смартфон', 'телефон', 'ноутбук', 'компьютер', 'планшет', 'наушник', 'умные час', 'смарт-час', 'фитнес-браслет', 'смарт-браслет', 'умная колонк', 'телевизор', 'пылесос', 'фен', 'блендер', 'кабель', 'зарядн', 'powerbank', 'повербанк', 'фотоаппарат', 'увлажнитель воздух', 'очиститель воздух'] },
+  { key: 'juvelirka', keywords: ['кольцо', 'кольца', 'серьг', 'цепочк', 'кулон', 'подвеск', 'ювелир', 'брошь', 'запонк', 'ожерель', 'браслет'] },
   { key: 'odezhda', keywords: ['одежд', 'футболк', 'рубашк', 'брюки', 'джинс', 'платье', 'юбк', 'куртк', 'пальто', 'свитер', 'толстовк', 'шорты', 'костюм', 'бельё'] },
   { key: 'krasota', keywords: ['крем', 'сыворотк', 'шампунь', 'парфюм', 'дух', 'туалетная вода', 'тушь', 'помад', 'тональн', 'витамин', 'бад', 'космети', 'уход за кож', 'уход за волос'] },
   { key: 'dom', keywords: ['мебель', 'посуд', 'кастрюл', 'сковород', 'постельн', 'полотенц', 'штор', 'светильник', 'лампа', 'ковёр', 'декор для дома', 'кухонн утвар'] }
