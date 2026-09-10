@@ -1038,6 +1038,39 @@ var CATEGORY_FIELD_TIERS = {
 
 var allItems = [];
 
+var CATEGORY_KEYWORDS = [
+  { key: 'detskie', keywords: ['детск', 'для детей', 'малыш', 'младенец', 'новорожденн', 'подгузник', 'коляск', 'автокресл', 'погремушк', 'пелёнк'] },
+  { key: 'juvelirka', keywords: ['кольцо', 'кольца', 'серьг', 'цепочк', 'кулон', 'подвеск', 'ювелир', 'брошь', 'запонк', 'ожерель'] },
+  { key: 'sport', keywords: ['тренажёр', 'гантел', 'штанг', 'гиря', 'велосипед', 'самокат', 'ролики', 'коврик для йоги', 'скакалк', 'эспандер', 'беговая дорожк', 'наколенник', 'налокотник'] },
+  { key: 'aksessuary', keywords: ['сумк', 'рюкзак', 'чехол', 'ремень', 'кошелёк', 'портмоне', 'шарф', 'перчатк', 'шапк', 'очки солнцезащитн', 'зонт'] },
+  { key: 'obuv', keywords: ['обувь', 'кроссовк', 'ботинк', 'туфли', 'сапог', 'сандал'] },
+  { key: 'elektronika', keywords: ['смартфон', 'телефон', 'ноутбук', 'компьютер', 'планшет', 'наушник', 'умные час', 'смарт-час', 'фитнес-браслет', 'умная колонк', 'телевизор', 'пылесос', 'фен', 'блендер', 'кабель', 'зарядн', 'powerbank', 'повербанк', 'фотоаппарат', 'увлажнитель воздух', 'очиститель воздух'] },
+  { key: 'odezhda', keywords: ['одежд', 'футболк', 'рубашк', 'брюки', 'джинс', 'платье', 'юбк', 'куртк', 'пальто', 'свитер', 'толстовк', 'шорты', 'костюм', 'бельё'] },
+  { key: 'krasota', keywords: ['крем', 'сыворотк', 'шампунь', 'парфюм', 'дух', 'туалетная вода', 'тушь', 'помад', 'тональн', 'витамин', 'бад', 'космети', 'уход за кож', 'уход за волос'] },
+  { key: 'dom', keywords: ['мебель', 'посуд', 'кастрюл', 'сковород', 'постельн', 'полотенц', 'штор', 'светильник', 'лампа', 'ковёр', 'декор для дома', 'кухонн утвар'] }
+];
+
+function matchCategoryText(text) {
+  if (!text) return null;
+  var lower = text.toLowerCase();
+  for (var i = 0; i < CATEGORY_KEYWORDS.length; i++) {
+    var entry = CATEGORY_KEYWORDS[i];
+    for (var j = 0; j < entry.keywords.length; j++) {
+      if (lower.indexOf(entry.keywords[j]) !== -1) return entry.key;
+    }
+  }
+  return null;
+}
+
+function detectCategory(item) {
+  return matchCategoryText(item.product_type) || matchCategoryText(item.title);
+}
+
+function fieldLabel(key) {
+  for (var i = 0; i < FIELDS.length; i++) { if (FIELDS[i].key === key) return FIELDS[i].label; }
+  return key;
+}
+
 function getField(block, key) {
   if (key === 'additional_image_link') {
     var cnt = 0, pos = 0, tag = '<g:additional_image_link>';
