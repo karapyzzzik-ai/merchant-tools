@@ -1152,6 +1152,39 @@ function renderCategoryBreakdown(breakdown) {
   return html;
 }
 
+function buildTieredFieldRecs(items) {
+  var recs = [];
+  CONDITIONAL_FIELDS.forEach(function(field) {
+    var critCats = {}, warnCats = {}, critTotal = 0, warnTotal = 0;
+    items.forEach(function(item) {
+      if (item[field]) return;
+      var cat = detectCategory(item);
+      if (!cat) return;
+      var tier = CATEGORY_FIELD_TIERS[cat][field];
+      if (tier === 'critical') { critTotal++; critCats[cat] = true; }
+      else if (tier === 'medium') { warnTotal++; warnCats[cat] = true; }
+    });
+    var label = fieldLabel(field);
+    if (critTotal) {
+      var critList = CATEGORY_LIST.filter(function(c) { return critCats[c.key]; }).map(function(c) { return c.label; }).join(', ');
+      recs.push({
+        sev: 'err',
+        text: 'Заполните <b>' + label + '</b> — не заполнено у ' + critTotal + ' товаров в категориях, где это критично: ' + critList + '.',
+        plain: 'Заполните ' + label + ' — не заполнено у ' + critTotal + ' товаров в категориях, где это критично: ' + critList + '.'
+      });
+    }
+    if (warnTotal) {
+      var warnList = CATEGORY_LIST.filter(function(c) { return warnCats[c.key]; }).map(function(c) { return c.label; }).join(', ');
+      recs.push({
+        sev: 'warn',
+        text: 'Рекомендуется заполнить <b>' + label + '</b> — не заполнено у ' + warnTotal + ' товаров в категориях: ' + warnList + '.',
+        plain: 'Рекомендуется заполнить ' + label + ' — не заполнено у ' + warnTotal + ' товаров в категориях: ' + warnList + '.'
+      });
+    }
+  });
+  return recs;
+}
+
 function getField(block, key) {
   if (key === 'additional_image_link') {
     var cnt = 0, pos = 0, tag = '<g:additional_image_link>';
