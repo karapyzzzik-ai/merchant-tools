@@ -1071,6 +1071,87 @@ function fieldLabel(key) {
   return key;
 }
 
+function detailTable(rows, cols) {
+  var h = '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">';
+  h += '<tr>' + cols.map(function(c){ return '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);color:var(--text2);">'+c+'</th>'; }).join('') + '</tr>';
+  rows.forEach(function(r) {
+    h += '<tr>' + r.map(function(c){ return '<td style="padding:4px 6px;border-bottom:1px solid var(--border);word-break:break-word;">'+c+'</td>'; }).join('') + '</tr>';
+  });
+  h += '</table>';
+  return h;
+}
+
+function anCard(title, rows, detailId, detailHtml) {
+  var hasErr = rows.some(function(r) { return r[2] === 'err'; });
+  var hasWarn = rows.some(function(r) { return r[2] === 'warn'; });
+  var sevCls = hasErr ? ' has-err' : hasWarn ? ' has-warn' : '';
+  var h = '<div class="an-card'+sevCls+'">';
+  h += '<p class="an-card-title">'+title+'</p>';
+  rows.forEach(function(r) {
+    h += '<div class="an-row"><span class="an-label">'+r[0]+'</span><span class="an-value '+(r[2]||'')+'">'+r[1]+'</span></div>';
+  });
+  if (detailId && detailHtml) {
+    h += '<button class="btn" style="margin-top:10px;font-size:12px;" onclick="showDetail(\''+detailId+'\')">Подробнее</button>';
+    h += '<div id="'+detailId+'" style="display:none;margin-top:8px;">'+detailHtml+'</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function computeCategoryBreakdown(items) {
+  var byCat = {};
+  var unknown = [];
+  items.forEach(function(item) {
+    var cat = detectCategory(item);
+    if (!cat) { unknown.push(item); return; }
+    if (!byCat[cat]) byCat[cat] = [];
+    byCat[cat].push(item);
+  });
+  var rows = [];
+  CATEGORY_LIST.forEach(function(entry) {
+    var catItems = byCat[entry.key];
+    if (!catItems || !catItems.length) return;
+    var tiers = CATEGORY_FIELD_TIERS[entry.key];
+    var criticalFields = CONDITIONAL_FIELDS.filter(function(f) { return tiers[f] === 'critical'; });
+    var criticalTotal = catItems.length * criticalFields.length;
+    var criticalFilled = 0;
+    catItems.forEach(function(item) {
+      criticalFields.forEach(function(f) { if (item[f]) criticalFilled++; });
+    });
+    rows.push({
+      key: entry.key,
+      label: entry.label,
+      count: catItems.length,
+      criticalFieldCount: criticalFields.length,
+      criticalPct: criticalFields.length ? pct(criticalFilled, criticalTotal) : null
+    });
+  });
+  return { rows: rows, unknown: unknown };
+}
+
+function renderCategoryBreakdown(breakdown) {
+  if (!breakdown.rows.length && !breakdown.unknown.length) return '';
+  var html = '<p style="margin:0 0 .75rem;font-size:15px;font-weight:600;">Разбивка по категориям</p><div class="analytics-grid" style="margin-bottom:1.5rem;">';
+  breakdown.rows.forEach(function(row) {
+    var pctRow = row.criticalPct === null
+      ? ['Критичные поля', 'нет критичных полей для категории', '']
+      : ['Критичные поля заполнены', row.criticalPct + '%', row.criticalPct === 100 ? 'ok' : row.criticalPct >= 50 ? 'warn' : 'err'];
+    html += anCard(row.label, [
+      ['Товаров', row.count.toLocaleString('ru'), ''],
+      pctRow
+    ]);
+  });
+  if (breakdown.unknown.length) {
+    var detailHtml = detailTable(breakdown.unknown.slice(0, 30).map(function(i) { return [i.title || '—']; }), ['Название'])
+      + (breakdown.unknown.length > 30 ? '<p style="font-size:11px;color:var(--text3);margin:4px 0 0">...и ещё ' + (breakdown.unknown.length - 30) + '</p>' : '');
+    html += anCard('Категория не определена', [
+      ['Товаров', breakdown.unknown.length.toLocaleString('ru'), 'warn']
+    ], 'detail-category-unknown', detailHtml);
+  }
+  html += '</div>';
+  return html;
+}
+
 function getField(block, key) {
   if (key === 'additional_image_link') {
     var cnt = 0, pos = 0, tag = '<g:additional_image_link>';
@@ -1271,15 +1352,6 @@ function renderAnalytics(items) {
   var noGroup      = items.filter(function(i) { return !i.item_group_id; });
 
   // ── helpers ──
-  function detailTable(rows, cols) {
-    var h = '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">';
-    h += '<tr>' + cols.map(function(c){ return '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);color:var(--text2);">'+c+'</th>'; }).join('') + '</tr>';
-    rows.forEach(function(r) {
-      h += '<tr>' + r.map(function(c){ return '<td style="padding:4px 6px;border-bottom:1px solid var(--border);word-break:break-word;">'+c+'</td>'; }).join('') + '</tr>';
-    });
-    h += '</table>';
-    return h;
-  }
   function uniqueMap(map, limit) {
     var keys = Object.keys(map).sort(function(a,b){ return map[b]-map[a]; });
     var h = detailTable(keys.slice(0,limit||50).map(function(k){ return [k, map[k]]; }), ['Значение','Кол-во']);
@@ -1289,23 +1361,6 @@ function renderAnalytics(items) {
   function itemsTable(arr, limit) {
     return detailTable(arr.slice(0,limit||30).map(function(i){ return [i.title||'—', i.item_group_id||'—']; }), ['Название','Group ID']) +
       (arr.length > (limit||30) ? '<p style="font-size:11px;color:var(--text3);margin:4px 0 0">...и ещё '+(arr.length-(limit||30))+'</p>' : '');
-  }
-
-  function anCard(title, rows, detailId, detailHtml) {
-    var hasErr = rows.some(function(r) { return r[2] === 'err'; });
-    var hasWarn = rows.some(function(r) { return r[2] === 'warn'; });
-    var sevCls = hasErr ? ' has-err' : hasWarn ? ' has-warn' : '';
-    var h = '<div class="an-card'+sevCls+'">';
-    h += '<p class="an-card-title">'+title+'</p>';
-    rows.forEach(function(r) {
-      h += '<div class="an-row"><span class="an-label">'+r[0]+'</span><span class="an-value '+(r[2]||'')+'">'+r[1]+'</span></div>';
-    });
-    if (detailId && detailHtml) {
-      h += '<button class="btn" style="margin-top:10px;font-size:12px;" onclick="showDetail(\''+detailId+'\')">Подробнее</button>';
-      h += '<div id="'+detailId+'" style="display:none;margin-top:8px;">'+detailHtml+'</div>';
-    }
-    h += '</div>';
-    return h;
   }
 
   var html = '<div class="analytics-grid">';
