@@ -1085,6 +1085,11 @@ function detailTable(rows, cols) {
   return h;
 }
 
+function itemsTable(arr, limit) {
+  return detailTable(arr.slice(0,limit||30).map(function(i){ return [i.title||'—', i.item_group_id||'—']; }), ['Название','Group ID']) +
+    (arr.length > (limit||30) ? '<p style="font-size:11px;color:var(--text3);margin:4px 0 0">...и ещё '+(arr.length-(limit||30))+'</p>' : '');
+}
+
 function anCard(title, rows, detailId, detailHtml) {
   var hasErr = rows.some(function(r) { return r[2] === 'err'; });
   var hasWarn = rows.some(function(r) { return r[2] === 'warn'; });
@@ -1121,10 +1126,13 @@ function computeCategorySectionStats(items) {
   var with2plus   = items.filter(function(i) { return (parseInt(i.additional_image_link) || 0) >= 2; }).length;
   var descOk      = items.filter(function(i) { return i.description && i.description.length >= 50; }).length;
   var fieldFill = {};
+  var fieldMissing = {};
   CONDITIONAL_FIELDS.forEach(function(f) {
-    fieldFill[f] = items.filter(function(i) { return !!i[f]; }).length;
+    var missing = items.filter(function(i) { return !i[f]; });
+    fieldMissing[f] = missing;
+    fieldFill[f] = total - missing.length;
   });
-  return { total: total, titleFilled: titleFilled, withMain: withMain, with2plus: with2plus, descOk: descOk, fieldFill: fieldFill };
+  return { total: total, titleFilled: titleFilled, withMain: withMain, with2plus: with2plus, descOk: descOk, fieldFill: fieldFill, fieldMissing: fieldMissing };
 }
 
 function renderCategorySection(label, items, tiers) {
@@ -1140,13 +1148,22 @@ function renderCategorySection(label, items, tiers) {
   ];
 
   var fieldRows = [];
+  var attrDetailId = null, attrDetailHtml = '';
   CONDITIONAL_FIELDS.forEach(function(f) {
     var tier = tiers ? tiers[f] : ((f === 'brand' || f === 'item_group_id') ? 'unknown' : null);
     if (!tier || tier === 'optional') return;
-    var p = pct(stats.fieldFill[f], total);
+    var filled = stats.fieldFill[f];
+    var missing = stats.fieldMissing[f];
+    var p = pct(filled, total);
     var sevCls = p === 100 ? 'ok' : (tier === 'critical' ? 'err' : 'warn');
     var tierNote = tier === 'critical' ? ' · критично' : tier === 'medium' ? ' · средне' : '';
-    fieldRows.push([fieldLabel(f) + tierNote, p + '%', sevCls]);
+    fieldRows.push([fieldLabel(f) + tierNote, filled + ' / ' + total + ' (' + p + '%)', sevCls]);
+    if (missing.length) {
+      attrDetailId = 'detail-attrs-' + (label.replace(/[^a-zA-Zа-яА-Я0-9]/g, '') || 'unknown');
+      attrDetailHtml += '<p style="font-size:12px;color:var(--text2);margin:10px 0 4px">'
+        + fieldLabel(f) + tierNote + ' — не заполнено (' + missing.length + '):</p>'
+        + itemsTable(missing, 20);
+    }
   });
 
   var baseDetailId = null, baseDetailHtml = null;
@@ -1161,7 +1178,7 @@ function renderCategorySection(label, items, tiers) {
     + ' <span class="category-section-count">' + total.toLocaleString('ru') + ' тов.</span></h3>';
   html += '<div class="analytics-grid">';
   html += anCard('Основное', baseRows, baseDetailId, baseDetailHtml);
-  if (fieldRows.length) html += anCard('Атрибуты по приоритету', fieldRows);
+  if (fieldRows.length) html += anCard('Атрибуты по приоритету', fieldRows, attrDetailId, attrDetailHtml || null);
   html += '</div></div>';
   return html;
 }
@@ -1445,6 +1462,19 @@ function renderAnalytics(items) {
   var groupFilled  = items.filter(function(i) { return !!i.item_group_id; }).length;
   var noGroup      = items.filter(function(i) { return !i.item_group_id; });
 
+  // ── 9. Ссылка (обязательное поле) ──
+  var linkFilled  = items.filter(function(i) { return !!i.link; }).length;
+  var noLink      = items.filter(function(i) { return !i.link; });
+  var linkInvalid = items.filter(function(i) { return i.link && !/^https?:\/\//i.test(i.link.trim()); });
+
+  // ── 10. Цена (обязательное поле) ──
+  var priceFilled  = items.filter(function(i) { return !!i.price; }).length;
+  var noPrice      = items.filter(function(i) { return !i.price; });
+  var priceInvalid = items.filter(function(i) { return i.price && !/\d/.test(i.price); });
+
+  // ── 11. Основное фото (обязательное поле) ──
+  var noMainPhoto = items.filter(function(i) { return !i.image_link; });
+
   // ── helpers ──
   function uniqueMap(map, limit) {
     var keys = Object.keys(map).sort(function(a,b){ return map[b]-map[a]; });
@@ -1452,22 +1482,19 @@ function renderAnalytics(items) {
     if (keys.length > (limit||50)) h += '<p style="font-size:11px;color:var(--text3);margin:4px 0 0">...и ещё '+(keys.length-(limit||50))+' значений</p>';
     return h;
   }
-  function itemsTable(arr, limit) {
-    return detailTable(arr.slice(0,limit||30).map(function(i){ return [i.title||'—', i.item_group_id||'—']; }), ['Название','Group ID']) +
-      (arr.length > (limit||30) ? '<p style="font-size:11px;color:var(--text3);margin:4px 0 0">...и ещё '+(arr.length-(limit||30))+'</p>' : '');
-  }
 
-  var html = renderCategorySections(items);
+  // ══ Раздел 1: обязательные поля (для всех товаров, вне зависимости от категории) ══
+  var html = '<p style="margin:0 0 1rem;font-size:15px;font-weight:600;">Обязательные поля</p>';
   html += '<div class="analytics-grid">';
 
-  // 1. Товары
+  // Наличие (availability)
   html += anCard('Товары', [
     ['Всего', '<span class="an-big" style="font-size:22px">'+total.toLocaleString('ru')+'</span>', ''],
     ['В наличии', inStock.toLocaleString('ru'), 'ok'],
     ['Отсутствуют', outStock.toLocaleString('ru'), outStock > 0 ? 'warn' : 'ok'],
   ]);
 
-  // 2. Названия
+  // Названия (title)
   var nameDetail = titlesWithSize.length
     ? '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Товары с размером в названии:</p>'
       + detailTable(titlesWithSize.slice(0,30).map(function(i){ return [i.title||'—']; }), ['Название'])
@@ -1477,11 +1504,54 @@ function renderAnalytics(items) {
     ['Корректные (без размера)', (titleFilled-titlesWithSize.length), 'ok'],
     ['Содержат размер', titlesWithSize.length, titlesWithSize.length>0?'err':'ok'],
   ], titlesWithSize.length ? 'detail-title' : null, nameDetail);
-  if (titlesWithSize.length) html += ''; // conclusion inline
 
-  // 3. Фото
+  // Ссылка (link)
+  var linkDetail = '';
+  if (noLink.length) linkDetail += '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Без ссылки:</p>'+itemsTable(noLink,30);
+  if (linkInvalid.length) linkDetail += '<p style="font-size:12px;color:var(--text2);margin:8px 0 4px">Не начинается с http(s):</p>'+itemsTable(linkInvalid,30);
+  html += anCard('Ссылка', [
+    ['Заполнено', linkFilled+' / '+total, linkFilled===total?'ok':'err'],
+    ['Некорректный формат', linkInvalid.length, linkInvalid.length>0?'warn':'ok'],
+  ], (noLink.length||linkInvalid.length) ? 'detail-link' : null, linkDetail);
+
+  // Изображение (image_link)
+  var mainPhotoDetail = noMainPhoto.length
+    ? '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Товары без основного фото:</p>'+itemsTable(noMainPhoto,30)
+    : '';
+  html += anCard('Изображение', [
+    ['Основное фото', withMain+' / '+total, withMain===total?'ok':'err'],
+  ], noMainPhoto.length ? 'detail-image' : null, mainPhotoDetail);
+
+  // Описание (description)
+  var descDetailReq = descShort.length
+    ? '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Товары с коротким описанием:</p>'
+      + detailTable(descShort.slice(0,30).map(function(i){ return [i.title||'—', (i.description||'').length+' симв.']; }), ['Название','Длина'])
+    : '';
+  html += anCard('Описание', [
+    ['Заполнено', descFilled+' / '+total, descFilled===total?'ok':'warn'],
+    ['≥ 50 символов', descOk, 'ok'],
+    ['Короче 50 символов', descShort.length, descShort.length>0?'warn':'ok'],
+  ], descShort.length ? 'detail-desc' : null, descDetailReq);
+
+  // Цена (price)
+  var priceDetail = '';
+  if (noPrice.length) priceDetail += '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Без цены:</p>'+itemsTable(noPrice,30);
+  if (priceInvalid.length) priceDetail += '<p style="font-size:12px;color:var(--text2);margin:8px 0 4px">Значение без числа:</p>'+itemsTable(priceInvalid,30);
+  html += anCard('Цена', [
+    ['Заполнено', priceFilled+' / '+total, priceFilled===total?'ok':'err'],
+    ['Некорректный формат', priceInvalid.length, priceInvalid.length>0?'warn':'ok'],
+  ], (noPrice.length||priceInvalid.length) ? 'detail-price' : null, priceDetail);
+
+  html += '</div>'; // close required-fields grid
+
+  // ══ Раздел 2: детальная разбивка по категориям ══
+  html += renderCategorySections(items);
+
+  // ══ Раздел 3: качество значений (не завязано на категорию) ══
+  html += '<div class="analytics-grid">';
+
+  // Доп. фото
   var photoRows = [
-    ['С основным фото', withMain+' / '+total, withMain===total?'ok':'err'],
     ['С доп. фото (≥2)', with2plus+' / '+total, with2plus===total?'ok':'warn'],
   ];
   var photoKeys = Object.keys(photoMap).sort(function(a,b){ return parseInt(a)-parseInt(b); });
@@ -1493,7 +1563,7 @@ function renderAnalytics(items) {
     ? '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Товары без доп. фото:</p>'
       + itemsTable(noExtra, 30)
     : '';
-  html += anCard('Фото', photoRows, noExtra.length ? 'detail-photo' : null, photoDetail);
+  html += anCard('Доп. фото', photoRows, noExtra.length ? 'detail-photo' : null, photoDetail);
 
   // 4. Бренд
   var brandMap = {};
@@ -1543,17 +1613,6 @@ function renderAnalytics(items) {
     ['Заполнено', sizeFilled+' / '+total, ''],
     ['Несоответствий сетке', sizeIssues.length, sizeIssues.length>0?'err':'ok'],
   ], 'detail-size', sizeDetailFull);
-
-  // 7. Описание
-  var descDetail = descShort.length
-    ? '<p style="font-size:12px;color:var(--text2);margin:0 0 4px">Товары с коротким описанием:</p>'
-      + detailTable(descShort.slice(0,30).map(function(i){ return [i.title||'—', (i.description||'').length+' симв.']; }), ['Название','Длина'])
-    : '';
-  html += anCard('Описание', [
-    ['Заполнено', descFilled+' / '+total, descFilled===total?'ok':'warn'],
-    ['≥ 50 символов', descOk, 'ok'],
-    ['Короче 50 символов', descShort.length, descShort.length>0?'warn':'ok'],
-  ], descShort.length ? 'detail-desc' : null, descDetail);
 
   // 8. Категория
   var catDetail = '';
@@ -1630,6 +1689,10 @@ function renderAnalytics(items) {
     recs.push({ sev: 'err', text: 'Заполните поле <b>title</b> у всех товаров. Отсутствует у ' + (total-titleFilled) + ' позиций.', plain: 'Заполните поле title у всех товаров. Отсутствует у ' + (total-titleFilled) + ' позиций.' });
   if (titlesWithSize.length)
     recs.push({ sev: 'err', text: 'Уберите размер из названия товара у ' + titlesWithSize.length + ' позиций. Название должно содержать только наименование, цвет и бренд.', plain: 'Уберите размер из названия товара у ' + titlesWithSize.length + ' позиций. Название должно содержать только наименование, цвет и бренд.' });
+  if (noLink.length)
+    recs.push({ sev: 'err', text: 'Заполните поле <b>link</b> у ' + noLink.length + ' товаров.', plain: 'Заполните поле link у ' + noLink.length + ' товаров.' });
+  if (linkInvalid.length)
+    recs.push({ sev: 'warn', text: 'Ссылка не начинается с http(s) у ' + linkInvalid.length + ' товаров.', plain: 'Ссылка не начинается с http(s) у ' + linkInvalid.length + ' товаров.' });
   if (withMain < total)
     recs.push({ sev: 'err', text: 'Добавьте основное фото у ' + (total-withMain) + ' товаров. Поле <b>image_link</b> обязательно.', plain: 'Добавьте основное фото у ' + (total-withMain) + ' товаров. Поле image_link обязательно.' });
   if (with2plus < total)
@@ -1638,6 +1701,10 @@ function renderAnalytics(items) {
     recs.push({ sev: 'err', text: 'Заполните описание (<b>description</b>) у ' + (total-descFilled) + ' товаров.', plain: 'Заполните описание (description) у ' + (total-descFilled) + ' товаров.' });
   if (descShort.length)
     recs.push({ sev: 'warn', text: 'Описание короче 50 символов у ' + descShort.length + ' товаров. Расширьте текст для улучшения релевантности.', plain: 'Описание короче 50 символов у ' + descShort.length + ' товаров. Расширьте текст для улучшения релевантности.' });
+  if (noPrice.length)
+    recs.push({ sev: 'err', text: 'Заполните поле <b>price</b> у ' + noPrice.length + ' товаров.', plain: 'Заполните поле price у ' + noPrice.length + ' товаров.' });
+  if (priceInvalid.length)
+    recs.push({ sev: 'warn', text: 'Некорректный формат цены (нет числа) у ' + priceInvalid.length + ' товаров.', plain: 'Некорректный формат цены (нет числа) у ' + priceInvalid.length + ' товаров.' });
   recs = recs.concat(buildTieredFieldRecs(items));
   recs = recs.concat(buildUnknownCategoryFallbackRecs(items));
   if (colorInvalid.length)
