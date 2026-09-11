@@ -177,6 +177,10 @@
   .an-value.ok { color: var(--green-text); }
   .an-value.warn { color: var(--amber-text); }
   .an-value.err { color: var(--red-text); }
+  .category-section { margin-bottom: 1.75rem; }
+  .category-section-title { display: flex; align-items: baseline; gap: 10px; font-size: 15px; font-weight: 600; margin: 0 0 .75rem; padding-bottom: .5rem; border-bottom: 1px solid var(--border); }
+  .category-section-title.is-unknown { color: var(--text2); }
+  .category-section-count { font-size: 12px; font-weight: 500; color: var(--text2); font-family: var(--mono); }
   .an-big { font-size: 30px; font-weight: 700; color: var(--text); margin: 0 0 4px; font-family: var(--mono); letter-spacing: -.02em; }
   .an-sub { font-size: 12px; color: var(--text3); }
   .an-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -1098,7 +1102,7 @@ function anCard(title, rows, detailId, detailHtml) {
   return h;
 }
 
-function computeCategoryBreakdown(items) {
+function groupItemsByCategory(items) {
   var byCat = {};
   var unknown = [];
   items.forEach(function(item) {
@@ -1107,48 +1111,77 @@ function computeCategoryBreakdown(items) {
     if (!byCat[cat]) byCat[cat] = [];
     byCat[cat].push(item);
   });
-  var rows = [];
-  CATEGORY_LIST.forEach(function(entry) {
-    var catItems = byCat[entry.key];
-    if (!catItems || !catItems.length) return;
-    var tiers = CATEGORY_FIELD_TIERS[entry.key];
-    var criticalFields = CONDITIONAL_FIELDS.filter(function(f) { return tiers[f] === 'critical'; });
-    var criticalTotal = catItems.length * criticalFields.length;
-    var criticalFilled = 0;
-    catItems.forEach(function(item) {
-      criticalFields.forEach(function(f) { if (item[f]) criticalFilled++; });
-    });
-    rows.push({
-      key: entry.key,
-      label: entry.label,
-      count: catItems.length,
-      criticalFieldCount: criticalFields.length,
-      criticalPct: criticalFields.length ? pct(criticalFilled, criticalTotal) : null
-    });
-  });
-  return { rows: rows, unknown: unknown };
+  return { byCat: byCat, unknown: unknown };
 }
 
-function renderCategoryBreakdown(breakdown) {
-  if (!breakdown.rows.length && !breakdown.unknown.length) return '';
-  var html = '<p style="margin:0 0 .75rem;font-size:15px;font-weight:600;">Разбивка по категориям</p><div class="analytics-grid">';
-  breakdown.rows.forEach(function(row) {
-    var pctRow = row.criticalPct === null
-      ? ['Критичные поля', 'нет критичных полей для категории', '']
-      : ['Критичные поля', row.criticalPct + '%', row.criticalPct === 100 ? 'ok' : row.criticalPct >= 50 ? 'warn' : 'err'];
-    html += anCard(row.label, [
-      ['Товаров', row.count.toLocaleString('ru'), ''],
-      pctRow
-    ]);
+function computeCategorySectionStats(items) {
+  var total = items.length;
+  var titleFilled = items.filter(function(i) { return !!i.title; }).length;
+  var withMain    = items.filter(function(i) { return !!i.image_link; }).length;
+  var with2plus   = items.filter(function(i) { return (parseInt(i.additional_image_link) || 0) >= 2; }).length;
+  var descOk      = items.filter(function(i) { return i.description && i.description.length >= 50; }).length;
+  var fieldFill = {};
+  CONDITIONAL_FIELDS.forEach(function(f) {
+    fieldFill[f] = items.filter(function(i) { return !!i[f]; }).length;
   });
-  if (breakdown.unknown.length) {
-    var detailHtml = detailTable(breakdown.unknown.slice(0, 30).map(function(i) { return [i.title || '—']; }), ['Название'])
-      + (breakdown.unknown.length > 30 ? '<p style="font-size:11px;color:var(--text3);margin:4px 0 0">...и ещё ' + (breakdown.unknown.length - 30) + '</p>' : '');
-    html += anCard('Категория не определена', [
-      ['Товаров', breakdown.unknown.length.toLocaleString('ru'), 'warn']
-    ], 'detail-category-unknown', detailHtml);
+  return { total: total, titleFilled: titleFilled, withMain: withMain, with2plus: with2plus, descOk: descOk, fieldFill: fieldFill };
+}
+
+function renderCategorySection(label, items, tiers) {
+  var stats = computeCategorySectionStats(items);
+  var total = stats.total;
+  var isUnknown = !tiers;
+
+  var baseRows = [
+    ['Названия заполнены', stats.titleFilled + ' / ' + total, stats.titleFilled === total ? 'ok' : 'warn'],
+    ['Основное фото', stats.withMain + ' / ' + total, stats.withMain === total ? 'ok' : 'err'],
+    ['Доп. фото (≥2)', stats.with2plus + ' / ' + total, stats.with2plus === total ? 'ok' : 'warn'],
+    ['Описание ≥ 50 симв.', stats.descOk + ' / ' + total, stats.descOk === total ? 'ok' : 'warn']
+  ];
+
+  var fieldRows = [];
+  CONDITIONAL_FIELDS.forEach(function(f) {
+    var tier = tiers ? tiers[f] : ((f === 'brand' || f === 'item_group_id') ? 'unknown' : null);
+    if (!tier || tier === 'optional') return;
+    var p = pct(stats.fieldFill[f], total);
+    var sevCls = p === 100 ? 'ok' : (tier === 'critical' ? 'err' : 'warn');
+    var tierNote = tier === 'critical' ? ' · критично' : tier === 'medium' ? ' · средне' : '';
+    fieldRows.push([fieldLabel(f) + tierNote, p + '%', sevCls]);
+  });
+
+  var baseDetailId = null, baseDetailHtml = null;
+  if (isUnknown) {
+    baseDetailId = 'detail-category-unknown';
+    baseDetailHtml = detailTable(items.slice(0, 30).map(function(i) { return [i.title || i.product_type || '—']; }), ['Название'])
+      + (items.length > 30 ? '<p style="font-size:11px;color:var(--text3);margin:4px 0 0">...и ещё ' + (items.length - 30) + '</p>' : '');
   }
-  html += '</div>';
+
+  var html = '<div class="category-section">';
+  html += '<h3 class="category-section-title' + (isUnknown ? ' is-unknown' : '') + '">' + label
+    + ' <span class="category-section-count">' + total.toLocaleString('ru') + ' тов.</span></h3>';
+  html += '<div class="analytics-grid">';
+  html += anCard('Основное', baseRows, baseDetailId, baseDetailHtml);
+  if (fieldRows.length) html += anCard('Атрибуты по приоритету', fieldRows);
+  html += '</div></div>';
+  return html;
+}
+
+function renderCategorySections(items) {
+  var grouped = groupItemsByCategory(items);
+  var sortedCats = CATEGORY_LIST
+    .map(function(entry) { return { entry: entry, items: grouped.byCat[entry.key] || [] }; })
+    .filter(function(g) { return g.items.length > 0; })
+    .sort(function(a, b) { return b.items.length - a.items.length; });
+
+  if (!sortedCats.length && !grouped.unknown.length) return '';
+
+  var html = '<p style="margin:0 0 1rem;font-size:15px;font-weight:600;">Разбивка по категориям</p>';
+  sortedCats.forEach(function(g) {
+    html += renderCategorySection(g.entry.label, g.items, CATEGORY_FIELD_TIERS[g.entry.key]);
+  });
+  if (grouped.unknown.length) {
+    html += renderCategorySection('Категория не определена', grouped.unknown, null);
+  }
   return html;
 }
 
@@ -1424,7 +1457,7 @@ function renderAnalytics(items) {
       (arr.length > (limit||30) ? '<p style="font-size:11px;color:var(--text3);margin:4px 0 0">...и ещё '+(arr.length-(limit||30))+'</p>' : '');
   }
 
-  var html = renderCategoryBreakdown(computeCategoryBreakdown(items));
+  var html = renderCategorySections(items);
   html += '<div class="analytics-grid">';
 
   // 1. Товары
